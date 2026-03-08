@@ -5,40 +5,37 @@ from urllib.request import URLError
 import re
 
 from bs4 import BeautifulSoup
+import json
+# url을 통해 접속하고 각 단어를 리턴하는 함수
+#일단 게시글 안에서는 script 태그 안 속성  'type': 'application/ld+json' 안에 시간 내용 제목 다 들어가 있음
 
-def urlCrawler(url):
-    #브라우저인척 유저 에이전트 헤더를 설정함
+def contentCrawler(url):
     req = Request(url, headers= {'User-Agent': 'Mozila/5.0'})
     html = urlopen(req)
     bs = BeautifulSoup(html, 'html.parser')
-    #html 에서 a 태그를 가져온다. 이때 속성값으로 href 를 가지면 그걸 출력한다.
-    #href 속성은 링크가 연결될 목적지를 값으로 가진다.
-    for link in bs.find_all('a'):
-        if 'href' in link.attrs:
-            print(link.attrs['href'])
+    content = bs.find('script', {'type': 'application/ld+json'})
+    data = json.loads(content.string)
+    title = data.get("headline")
+    articleBody = data.get("articleBody")
+    titleList = title.rsplit("-", 1)[0].strip().split(" ")
+    articleBodyList = articleBodyParser(articleBody)
 
-def urlCrawler2(url):
-    req = Request(url, headers= {'User-Agent': 'Mozila/5.0'})
-    html = urlopen(req)
-    bs = BeautifulSoup(html, 'html.parser')
-    for link in bs.find('div', {'id': 'bodyContent'}).find_all('a', {'href': re.compile('^(/wiki/)((?!:).)*$')}):
-        if 'href' in link.attrs:
-            print(link.attrs['href'])
+    for s in titleList:
+        print(s)
+    for s in articleBodyList:
+        print(s)
 
-def getLinks(articleUrl):
-    req = Request(articleUrl, headers= {'User-Agent': 'Mozila/5.0'})
-    html = urlopen(req)
-    bs = BeautifulSoup(html, 'html.parser')
-
-    return bs.find('div', {'id': 'bodyContent'}).find_all('a', {'href': re.compile('^(/wiki/)((?!:).)*$')})
+def articleBodyParser(articleBody):
+    suffix = "- dc official App"
+    if articleBody.endswith(suffix):
+        articleBody = articleBody[:-len(suffix)]
+    articleBodyList = articleBody.strip().split(" ")
+    return articleBodyList
 
 
 def main():
-    links = getLinks('https://en.wikipedia.org/wiki/Kevin_Bacon')
-    while len(links) > 0 :
-        newArticle = links[random.randint(0, len(links)-1)].attrs['href']
-        print(newArticle)
-        links = getLinks(newArticle)
+    contentCrawler('https://gall.dcinside.com/mgallery/board/view/?id=stockus&no=14603145&exception_mode=recommend&page=1')
+
 
 if __name__ == "__main__":
     main()
