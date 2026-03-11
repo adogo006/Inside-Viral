@@ -1,0 +1,15 @@
+{
+    "name": "Nginx-env",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "features": {
+        // Node.js를 먼저 추가하여 dot-config 설치 스크립트가 실행될 수 있게 합니다.
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "lts"
+        },
+    },
+    // 컨테이너 실행 후 자동으로 필요 없는 파일을 정리하는 설정 (선택 사항)
+    "postCreateCommand": "apt-get clean && rm -rf /var/lib/apt/lists/*"
+}
