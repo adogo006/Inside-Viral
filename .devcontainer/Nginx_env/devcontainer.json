@@ -1,8 +1,8 @@
 {
-    "name": "Nginx-env",
+    "name": "Nginx_env",
     "build": {
         "dockerfile": "Dockerfile",
-        "context": ".."
+        "context": "../.."
     },
     "features": {
         // Node.js를 먼저 추가하여 dot-config 설치 스크립트가 실행될 수 있게 합니다.
