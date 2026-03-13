@@ -23,10 +23,9 @@ class Word:
 # 
 # 본문의 제목 크롤링 함수, 1.기간내의 게시물인지 확인 2. 제목과 게시글 파싱 및 단어리스트 반환
 def contentCrawler(Words, gallId, dataNum, firstUrl, now, period):
-    print('크롤링 중...')
-    time.sleep(0.01 * randint(1, 3))
+    
+    time.sleep(0.05 * randint(1, 3))
     url = 'https://gall.dcinside.com/' + firstUrl.rsplit('/', 1)[0] + '/?id={}&no={}&page1'.format(gallId, dataNum)
- 
     try:
         req = Request(url, headers= {'User-Agent': 'Mozilla/5.0'})
         html = urlopen(req)
@@ -36,7 +35,7 @@ def contentCrawler(Words, gallId, dataNum, firstUrl, now, period):
         print('URL 에러! 서버와 통신이 안 됨! 강제종료!')
         return -1
     else:
-        print('url 접속 성공!')
+        print('........크롤링 중........')
         pass
     bs = BeautifulSoup(html, 'html.parser')
 
@@ -55,18 +54,17 @@ def contentCrawler(Words, gallId, dataNum, firstUrl, now, period):
     dt = datetime.strptime(upTimeTitle, "%Y-%m-%d %H:%M:%S")
     diff = now - dt
     if diff.days <= period:
-        title = contentWrap.find('span', {'class': 'title_subject'}).get_text(strip = True)   
+        title = contentWrap.find('span', {'class': 'title_subject'}).get_text(strip = True)
+        print(title)   
         for titleWord in title.split():
-            print('수집완료 {}'.format(titleWord))
-            print(titleWord)
-            Words.extend(Word(gallId, dt, titleWord))
+            Words.append(Word(gallId, dt, titleWord))
 
         writeDivP = contentWrap.find('div', {'class':'write_div'}).find_all('p')
         for p in writeDivP:
             article = p.get_text(strip = True)
+            print(article)
             for articleWord in article.split():
-                print('수집완료 {}'.format(articleWord))
-                Words.extend(Word(gallId, dt, articleWord)) 
+                Words.append(Word(gallId, dt, articleWord)) 
         return contentCrawler(Words, gallId, int(dataNum)-1, firstUrl, now, period)        
     else:
         print('크롤링을 성공적으로 종료!')
