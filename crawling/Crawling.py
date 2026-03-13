@@ -55,17 +55,18 @@ def contentCrawler(Words, gallId, dataNum, firstUrl, now, period):
     dt = datetime.strptime(upTimeTitle, "%Y-%m-%d %H:%M:%S")
     diff = now - dt
     if diff.days <= period:
-        title = contentWrap.find('span', {'class': 'title_subject'}).get_text(strip = True)
-        print('제목: ', title)        
+        title = contentWrap.find('span', {'class': 'title_subject'}).get_text(strip = True)   
         for titleWord in title.split():
+            print('수집완료 {}'.format(titleWord))
+            print(titleWord)
             Words.extend(Word(gallId, dt, titleWord))
 
         writeDivP = contentWrap.find('div', {'class':'write_div'}).find_all('p')
         for p in writeDivP:
             article = p.get_text(strip = True)
-            print('내용: ',article)
             for articleWord in article.split():
-                Words.extend(Word(gallId, dt, titleWord)) 
+                print('수집완료 {}'.format(articleWord))
+                Words.extend(Word(gallId, dt, articleWord)) 
         return contentCrawler(Words, gallId, int(dataNum)-1, firstUrl, now, period)        
     else:
         print('크롤링을 성공적으로 종료!')
