@@ -1,15 +1,16 @@
 version: '3.8'
 
 services:
-  # app:
-  #   build:
-  #     context: ../..
-  #     dockerfile: .devcontainer/Dockerfile
-  #   volumes:
-  #     - ../..:/workspaces:cached
-  #   network_mode: service:db # 앱이 db 네트워크를 공유하도록 설정
-  #   depends_on:
-  #     - db
+  app:
+    build:
+      context: ../..
+      dockerfile: ./.devcontainer/dbManager_env/Dockerfile
+    volumes:
+      - ../..:/workspaces:cached
+    tty: true
+    network_mode: service:db # 앱이 db 네트워크를 공유하도록 설정
+    depends_on:
+      - db
 
   db:
     image: postgres:16-bookworm # 안정적인 Bookworm 버전 권장 이미지를 온라인에서 가져와서 사용

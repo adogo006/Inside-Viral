@@ -1,14 +1,14 @@
 {
   "name": "InsideViral-DB-Manager",
-  // "dockerComposeFile": "../../docker-compose.yml",
-  // "service": "app",
-  "build": {
-		// Sets the run context to one level up instead of the .devcontainer folder.
-		"context": "../..",
-		// Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
-		"dockerfile": "Dockerfile"
-	},
-  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "dockerComposeFile": "../DB_env/docker-compose.yml",
+  "service": "app",
+  // "build": {
+	// 	// Sets the run context to one level up instead of the .devcontainer folder.
+	// 	"context": "../..",
+	// 	// Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
+	// 	"dockerfile": "Dockerfile"
+	// },
+  "workspaceFolder": "/workspaces",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:1": {
       "configureZshAsDefaultShell": true
