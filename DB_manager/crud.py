@@ -1,0 +1,1 @@
+#CREATE, READ, DELETE, 등 핵심 로직
