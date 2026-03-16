@@ -1,11 +1,19 @@
 {
-  "name": "NLP-Project",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "customizations": {
-    "vscode": {
-      "extensions": ["ms-python.python"]
+    "name": "NLP",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": "../.."
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-toolsai.jupyter"
+            ]
+        }
+    },
+    "remoteUser": "root",
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils:1": {}
     }
-  }
 }
