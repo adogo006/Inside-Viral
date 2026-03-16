@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  # app:
+  #   build:
+  #     context: ../..
+  #     dockerfile: .devcontainer/Dockerfile
+  #   volumes:
+  #     - ../..:/workspaces:cached
+  #   network_mode: service:db # 앱이 db 네트워크를 공유하도록 설정
+  #   depends_on:
+  #     - db
+
+  db:
+    image: postgres:16-bookworm # 안정적인 Bookworm 버전 권장 이미지를 온라인에서 가져와서 사용
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: inside
+      POSTGRES_PASSWORD: Viral
+      POSTGRES_DB: insideViral_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data # 데이터 보존을 위한 볼륨
+
+volumes:
+  postgres-data:
