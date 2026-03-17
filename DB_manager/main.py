@@ -1,37 +1,30 @@
 #실행 파일 (FAST_API 및 단순실행)
-import psycopg2
-import os
-from dotenv import load_dotenv
+from database import engine, SessionLocal
+from datetime import datetime
+import models, crud
 
 
-try:
-    conn = psycopg2.connect(
-        host = "localhost",
-        database = "insideViral_db",
-        user = "inside",
-        password = "Viral",
-        port = 5432
-    )
-    print("DB 연결 성공!")
+def test_database():
 
-except Exception as e:
-    print("연결 실패: {}".format(e))
+    print('db 테이블을 생성합니다.')
+    models.Base.metadata.create_all(bind = engine)
+    db = SessionLocal()
+    
+    try:
+        print('데이터를 넣는 중입니다.') 
+        crud.create_word_entry(db, 'testGallery', datetime.now(), '안녕하세요. 테스트입니다.', 0.8)   
 
-cursor = conn.cursor()
+        print('데이터를 출력합니다.')
+        print(crud.get_words(db))
 
-create_table_qurey = """
-CREATE TABLE IF NOT EXISTS words (
-    id SERIAL PRIMARY KEY,
-    gallId VARCHAR(50),
-    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    wordContent VARCHAR(500),
-    sentiment FLOAT
-    );
-"""
+    except Exception as e:
+        print(f'db 데이터 입력 실패! error: {e}')
 
-cursor.execute(create_table_qurey)
-conn.commit()
-print("테이블 생성 완료!")
+    finally:
+        db.close()
 
-if 'cursor' in locals(): cursor.close()
-if 'conn' in locals(): conn.close()
+if __name__ == '__main__':
+    test_database()
+
+
+
