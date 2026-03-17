@@ -8,16 +8,6 @@ from datetime import datetime
 import time
 from random import randint
 
-from dataclasses import dataclass
-from typing import List
-
-#이 Word 데이터를 앞으로 리스트로 보낼거임
-@dataclass
-class Word:
-    gallId: str
-    time: datetime
-    wordContent: str
-    sentiment : float = 0.0
 
 # html 내부 div 태그 class 속성 view_content_wrap 내부에서 제목 글 시간 모두 크롤링 가능 
 # 
@@ -101,11 +91,11 @@ def firstListParsing(bs, now, period):
 
 #!!!!!반드시 vpn 키고 돌릴것!!!!!
 # url과 시간을 받으면 그 시간안에 메인페이지 안에 있는 모든 게시글과 내용을 받음
-def main():
+def startCrawler(initUrl:str, days: int):
     now = datetime.now()
-    period = 1 #{perid}일 기준 이내 게시글 크롤링
+    period = days #{perid}일 기준 이내 게시글 크롤링
     # 메인페이지 url로 html 파싱 시작
-    url ='https://gall.dcinside.com/mgallery/board/lists/?id=projectmx'
+    url = initUrl
     req = Request(url, headers= {'User-Agent': 'Mozilla/5.0'})
     html = urlopen(req)
     bs = BeautifulSoup(html, 'html.parser')
@@ -118,5 +108,5 @@ def main():
     contentCrawler(Words, fLP[0], fLP[1], fLP[2], now, period)
     return 0;
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
