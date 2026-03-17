@@ -67,13 +67,13 @@ def firstListParsing(bs, now, period):
     
     list = bs.find('tr', {'class': 'ub-content us-post', 'data-type': ['icon_txt', 'icon_pic']})
     if list == None:
-        print('list 파싱 문제!')
+        print('list 파싱 에러')
         return -1
     #만약 삭제된 게시글이라 upTime이 None이 지정되면 다음 게시글로 이동해서 파싱
     
     upTime = list.find('td', {'class': 'gall_date'})
     if upTime == None:
-        print('upTime 파싱 문제!')
+        print('upTime 파싱 에러')
         return -1
     
     upTimeTitle = upTime.attrs['title']
@@ -103,10 +103,10 @@ def startCrawler(initUrl:str, days: int):
     # 크롤링 시점 기준 가장 최근 게시글 파싱 함수 ; 리턴 : gallid, 게시글번호 ; 만약, 설정한 기간내의 게시글이 없을때 -1 반환
     fLP = firstListParsing(bs, now, period)
     if fLP==-1:
-        print('크롤링 실패! 해당되는 게시글이 없습니다.')
-        return 0;    
+        print('크롤링 실패! 프로세스를 종료합니다.')
+        return Words;    
     contentCrawler(Words, fLP[0], fLP[1], fLP[2], now, period)
-    return 0;
+    return Words;
 
 # if __name__ == "__main__":
 #     main()

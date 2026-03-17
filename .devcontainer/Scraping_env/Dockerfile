@@ -6,9 +6,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY ./.devcontainer/Scraping_env/requirements.txt ./requirements.txt
+COPY ./.devcontainer/scraping_env/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-CMD ["python", "Crawling.py"]
 
 

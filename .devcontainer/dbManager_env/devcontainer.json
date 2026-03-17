@@ -1,7 +1,7 @@
 {
-  "name": "InsideViral-DB-Manager",
+  "name": "InsideViral-Dev-Container",
   "dockerComposeFile": "../DB_env/docker-compose.yml",
-  "service": "db_manager",
+  "service": "crawler",
   "workspaceFolder": "/workspaces",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:1": {
@@ -13,9 +13,12 @@
     "vscode": {
       "extensions": [
         "ms-python.python",
+        "ms-python.vscode-pylance",
         "mtxr.sqltools",
         "mtxr.sqltools-driver-pg",
-        "ms-azuretools.vscode-docker"
+        "ms-azuretools.vscode-docker",
+        "ms-python.isort",
+        "ms-python.black-formatter"
       ]
     }
   }

@@ -2,3 +2,7 @@ beautifulsoup4
 fastapi
 uvicorn
 requests
+sqlalchemy            
+ # 파이썬 DB 관리 도구 (ORM)
+psycopg2-binary       
+ # PostgreSQL 파이썬 드라이버
