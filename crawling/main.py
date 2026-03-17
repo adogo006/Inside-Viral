@@ -10,6 +10,7 @@ app = FastAPI(title= 'inside-viral Crawler Service')
 
 class CrawlerRequest(BaseModel):
     url: str
-    period : int
+    days : int
 
-def task_crawl_and_save
+def task_crawl_and_save(url: str, days: int):
+    print('(API)크롤링을 시작합니다.')
