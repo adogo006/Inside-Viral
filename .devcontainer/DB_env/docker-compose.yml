@@ -1,12 +1,13 @@
 version: '3.8'
 
 services:
-  app:
+  db_manager:
     build:
       context: ../..
       dockerfile: ./.devcontainer/dbManager_env/Dockerfile
     volumes:
       - ../..:/workspaces:cached
+
     tty: true
     network_mode: service:db # 앱이 db 네트워크를 공유하도록 설정
     depends_on:

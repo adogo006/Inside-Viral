@@ -1,13 +1,7 @@
 {
   "name": "InsideViral-DB-Manager",
   "dockerComposeFile": "../DB_env/docker-compose.yml",
-  "service": "app",
-  // "build": {
-	// 	// Sets the run context to one level up instead of the .devcontainer folder.
-	// 	"context": "../..",
-	// 	// Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
-	// 	"dockerfile": "Dockerfile"
-	// },
+  "service": "db_manager",
   "workspaceFolder": "/workspaces",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:1": {
