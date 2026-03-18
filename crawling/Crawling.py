@@ -48,12 +48,12 @@ def contentCrawler(Words, gallId, dataNum, firstUrl, now, period):
         print(title)   
         Words.append({"gallId": f"{gallId}", "wordContent": f"{title}", "date": f"{dt}"})
 
-        writeDivP = contentWrap.find('div', {'class':'write_div'}).find_all('p')
-        for p in writeDivP:
-            article = p.get_text(strip = True)
-            Words.append({"gallId": f"{gallId}", "wordContent": f"{article}", "date": f"{dt}"})
-            print(article) 
-        return contentCrawler(Words, gallId, int(dataNum)-1, firstUrl, now, period)        
+        writeDivP = contentWrap.find('div', {'class':'write_div'})
+        article = writeDivP.get_text(separator= " ", strip= True)
+        Words.append({"gallId": f"{gallId}", "wordContent": f"{article}", "date": f"{dt}"})
+        print(article) 
+        return contentCrawler(Words, gallId, int(dataNum)-1, firstUrl, now, period)  
+          
     else:
         print('크롤링을 성공적으로 종료!')
         return
