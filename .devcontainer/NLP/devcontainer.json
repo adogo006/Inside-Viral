@@ -4,16 +4,15 @@
         "dockerfile": "Dockerfile",
         "context": "../.."
     },
+        "features": {
+    },
     "customizations": {
         "vscode": {
             "extensions": [
                 "ms-python.python",
-                "ms-toolsai.jupyter"
+                "ms-python.vscode-pylance"
             ]
         }
     },
-    "remoteUser": "root",
-    "features": {
-        "ghcr.io/devcontainers/features/common-utils:1": {}
-    }
+    "remoteUser": "root"
 }
