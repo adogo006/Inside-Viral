@@ -1,8 +1,10 @@
 from soynlp.word import WordExtractor
+from soynlp.normalizer import repeat_normalize
 from transformers import pipeline
 import json
 import math
 import os
+import time
 
 # 단음절 조사, 특수문자는 keyword 추출에서 배제하기 위함
 particle = ["은", "는", "이", "가", "을", "를", "의", "야", "아", "들",
@@ -11,38 +13,66 @@ particle = ["은", "는", "이", "가", "을", "를", "의", "야", "아", "들"
 
 MODEL = "jaehyeong/koelectra-base-v3-generalized-sentiment-analysis"
 classifier = pipeline("sentiment-analysis", model=MODEL)
-print("\n--모델 로드 완료--\n")
+print("\n모델 로드 완료\n")
 
 def build_keyword_weights(sentences):
     word_extractor = WordExtractor()
     word_extractor.train(sentences)
     words = word_extractor.extract()
 
-    keyword_weights = {}
-    
+    # word 예외처리
+    filtered_words = []
     for word, score in words.items():
-        if word in particle: continue   # 예외처리
-        #if score.leftside_frequency < 1: continue   # 예외처리: 사용빈도가 적은 단어
+        if word in particle or len(word) < 2:
+            continue
+        if score.leftside_frequency < 5:
+            continue
+        if score.cohesion_forward < 0.2:
+            continue
+        if score.right_branching_entropy < 0.5:
+            continue
+        filtered_words.append(word)
+    
+    print(f"\n전체 추출 단어 {len(words)}개 중 {len(filtered_words)}개 선별\n")
+    time.sleep(2)
+    
+    print(f"\n{len(sentences)}개 문장 감성 분석\n")
+    time.sleep(2)
+    
+    # 문장 sentiment 설정
+    sentence_score = []
+    for s in sentences:
+        res = classifier(s, truncation=True, max_length=512)[0]
+        val = res['score'] if res['label'] == '1' else -res['score']
+        sentence_score.append(val)
         
-        # word가 포함된 모든 문장
-        relevant_sentences = [s for s in sentences if word in s]
-        if not relevant_sentences: continue
+        #debug
+        print(f"[{sentences.index(s)}/{len(sentences)}]  \"{s}\"\n{res}")
+    
+    print(f"\n문장 감성 분석 완료 및 가중치 계산 시작\n")
+    time.sleep(2)
+    
+    keyword_weights = {}
+    max_cnt = len(filtered_words)
+    
+    for idx, word in enumerate(filtered_words):
+        score = words[word]
         
-        total_sentiment = 0
-        for s in relevant_sentences:
-            res = classifier(s)[0]
-            print(f"{s} : {res}")
-            score_val = res['score'] if res['label'] == 'LABEL_1' else -res['score']
-            total_sentiment += score_val
-        avg_sentiment = total_sentiment / len(relevant_sentences)
+        indice = [i for i, s in enumerate(sentences) if word in s]
+        if not indice: continue
         
-        # 가중치 = 평균 감정 * 중요도(log 빈도 * 응집도)
-        importance = math.log(score.leftside_frequency + 1) * score.cohesion_forward
-        weight = avg_sentiment * importance
+        avg_sentiment = sum(sentence_score[i] for i in indice) / len(indice)
         
-        c = 0.5 if len(word) == 1 else 1.0 # 단음절 감쇄용 상수
-        keyword_weights[word] = round(weight * c, 4)
-        print(f"\n--{word} : weight = {keyword_weights[word]}--\n")
+        # 가중치 연산
+        strength = abs(avg_sentiment) 
+        weight = (strength * score.cohesion_forward) + (0.3 * math.log(score.leftside_frequency + 1))
+        if avg_sentiment < 0:
+            weight = -weight
+
+        keyword_weights[word] = round(weight, 4)
+        
+        # debug
+        print(f"\n[{idx}/{max_cnt}]  \"{word}\"  weight: {keyword_weights[word]}\n")
 
     with open('weights.json', 'w', encoding='utf-8') as f:
         json.dump(keyword_weights, f, ensure_ascii=False, indent=4)
@@ -50,9 +80,9 @@ def build_keyword_weights(sentences):
         
 if __name__ == "__main__":
     base_path = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(base_path, 'sentences.txt')
+    file_path = os.path.join(base_path, 'db_content.txt')
 
     with open(file_path, 'r', encoding='utf-8') as f:
-        sentences = f.read().splitlines()
+        sentences = [repeat_normalize(line, num_repeats=2) for line in f.read().splitlines()]
         
     build_keyword_weights(sentences)

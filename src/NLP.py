@@ -4,7 +4,7 @@ import pandas as pd
 MODEL = "jaehyeong/koelectra-base-v3-generalized-sentiment-analysis"
 classifier = pipeline("sentiment-analysis", model=MODEL)
 
-sentences = ["진짜 제미나이 좆같네"]
+sentences = []
 
 ret = classifier(sentences)
 for i in range(len(sentences)):

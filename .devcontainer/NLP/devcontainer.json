@@ -1,11 +1,10 @@
 {
-    "name": "NLP",
-    "build": {
-        "dockerfile": "Dockerfile",
-        "context": "../.."
-    },
-        "features": {
-    },
+    "name": "NLP-KeywordExtractor",
+    "image": "sentence_transformers:latest",
+    // "build": {
+    //     "dockerfile": "Dockerfile",
+    //     "context": "../.."
+    // },
     "customizations": {
         "vscode": {
             "extensions": [
