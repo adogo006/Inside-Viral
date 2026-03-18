@@ -14,7 +14,7 @@ from random import randint
 # 본문의 제목 크롤링 함수, 1.기간내의 게시물인지 확인 2. 제목과 게시글 파싱 및 단어리스트 반환
 def contentCrawler(Words, gallId, dataNum, firstUrl, now, period):
     
-    time.sleep(0.05 * randint(1, 3))
+    time.sleep(0.1 * randint(1, 4))
     url = 'https://gall.dcinside.com/' + firstUrl.rsplit('/', 1)[0] + '/?id={}&no={}&page1'.format(gallId, dataNum)
     try:
         req = Request(url, headers= {'User-Agent': 'Mozilla/5.0'})
@@ -43,23 +43,20 @@ def contentCrawler(Words, gallId, dataNum, firstUrl, now, period):
 
     dt = datetime.strptime(upTimeTitle, "%Y-%m-%d %H:%M:%S")
     diff = now - dt
-    if diff.days <= period:
+    if diff.days < period:
         title = contentWrap.find('span', {'class': 'title_subject'}).get_text(strip = True)
         print(title)   
-        for titleWord in title.split():
-            Words.append(Word(gallId, dt, titleWord))
+        Words.append({"gallId": f"{gallId}", "wordContent": f"{title}", "date": f"{dt}"})
 
         writeDivP = contentWrap.find('div', {'class':'write_div'}).find_all('p')
         for p in writeDivP:
             article = p.get_text(strip = True)
-            print(article)
-            for articleWord in article.split():
-                Words.append(Word(gallId, dt, articleWord)) 
+            Words.append({"gallId": f"{gallId}", "wordContent": f"{article}", "date": f"{dt}"})
+            print(article) 
         return contentCrawler(Words, gallId, int(dataNum)-1, firstUrl, now, period)        
     else:
         print('크롤링을 성공적으로 종료!')
         return
-
 
 
 # 메인 목록 안 bs에서 최근 게시글의 url과 업로드 시간을 가져오고 현재시간과 비교한 후 최근 게시글의 gallid 랑 게시글인덱스 반환 

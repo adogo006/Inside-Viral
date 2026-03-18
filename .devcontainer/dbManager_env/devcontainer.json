@@ -2,6 +2,7 @@
   "name": "InsideViral-Dev-Container",
   "dockerComposeFile": "../DB_env/docker-compose.yml",
   "service": "crawler",
+  "runServices": ["db", "crawler", "db_manager"],
   "workspaceFolder": "/workspaces",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:1": {

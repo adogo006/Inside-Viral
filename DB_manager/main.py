@@ -24,7 +24,7 @@ def test_database():
         db.close()
 
 if __name__ == '__main__':
-    test_database()
+     test_database()
 
 
 

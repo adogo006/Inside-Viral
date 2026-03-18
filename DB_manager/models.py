@@ -2,7 +2,7 @@
 
 from sqlalchemy import Column, Integer, String, Float, DateTime, TEXT
 from sqlalchemy.sql import func
-from database import Base
+from DB_manager.database import Base
 from enum import Enum
 
 class ProcessState(str, Enum):

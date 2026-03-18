@@ -3,7 +3,7 @@
         {
             "ssh": "Disabled",
             "previewLimit": 50,
-            "server": "localhost",
+            "server": "db",
             "port": 5432,
             "driver": "PostgreSQL",
             "name": "insideViral__db",
