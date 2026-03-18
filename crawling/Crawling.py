@@ -58,11 +58,12 @@ def contentCrawler(Words: list, gallId: str, dataNum: str, firstUrl: str, now: d
         if diff.days < period:
             title = contentWrap.find('span', {'class': 'title_subject'}).get_text(strip = True)
             print(title)   
-            Words.append({"gallId": f"{gallId}", "wordContent": f"{title}", "date": f"{dt}"})
+            # Words.append({"gallId": f"{gallId}", "wordContent": f"{title}", "date": f"{dt}"})
 
             writeDivP = contentWrap.find('div', {'class':'write_div'})
             article = writeDivP.get_text(separator= " ", strip= True)
-            Words.append({"gallId": f"{gallId}", "wordContent": f"{article}", "date": f"{dt}"})
+            titleArticle = title + ' ' + article
+            Words.append({"gallId": f"{gallId}", "wordContent": f"{titleArticle}", "date": f"{dt}"})
             print(article) 
             continue  
             
