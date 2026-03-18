@@ -30,7 +30,7 @@ def save_in_database(db: Session, word_list: list):
 def export_to_txt():
     db = SessionLocal()
     all_words = db.query(models.Word.wordContent).all()
-    with open('db_content', 'w', encoding='utf-8') as f:
+    with open('db_content.txt', 'w', encoding='utf-8') as f:
             for row in all_words:
                 content = row[0]
                 if content:
@@ -38,6 +38,6 @@ def export_to_txt():
                     clean_content = content.replace('\n', ' ').replace('\r', '').strip()
                     f.write(clean_content + '\n')
 
-    print("친구에게 보낼 'crawling_result.json' 생성 완료!")
+    print("친구에게 보낼 파일 생성 완료!")
     db.close()
     return
