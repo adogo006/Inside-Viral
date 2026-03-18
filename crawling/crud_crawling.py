@@ -19,10 +19,10 @@ def save_in_database(db: Session, word_list: list):
     try:
         db.add_all([models.Word(**d) for d in word_list]) 
         db.commit() 
-        print("데이터 저장 완료")
+        print("데이터 저장 중!")
         return 0
 
     except Exception as e:
         db.rollback()
-        print(f"오류 발생: {e}")
+        print(f"crud 오류 발생: {e}")
         return -1

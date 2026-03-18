@@ -2,61 +2,77 @@
 from urllib.request import urlopen, Request
 from urllib.request import HTTPError
 from urllib.request import URLError
+from DB_manager.database import SessionLocal
 
 from bs4 import BeautifulSoup
 from datetime import datetime
 import time
 from random import randint
+from crud_crawling import save_in_database
 
 
 # html 내부 div 태그 class 속성 view_content_wrap 내부에서 제목 글 시간 모두 크롤링 가능 
 # 
 # 본문의 제목 크롤링 함수, 1.기간내의 게시물인지 확인 2. 제목과 게시글 파싱 및 단어리스트 반환
-def contentCrawler(Words, gallId, dataNum, firstUrl, now, period):
+def contentCrawler(Words: list, gallId: str, dataNum: str, firstUrl: str, now: datetime, period: int):
+    current_no = int(dataNum)
     
-    time.sleep(0.1 * randint(1, 4))
-    url = 'https://gall.dcinside.com/' + firstUrl.rsplit('/', 1)[0] + '/?id={}&no={}&page1'.format(gallId, dataNum)
-    try:
-        req = Request(url, headers= {'User-Agent': 'Mozilla/5.0'})
-        html = urlopen(req)
-    except HTTPError as e:
-        return contentCrawler(Words, gallId, int(dataNum)-1, firstUrl, now, period)
-    except URLError as e:
-        print('URL 에러! 서버와 통신이 안 됨! 강제종료!')
-        return -1
-    else:
-        print('........크롤링 중........')
-        pass
-    bs = BeautifulSoup(html, 'html.parser')
+    while 1 :
+        time.sleep(0.1 * randint(1, 4))  
+        if len(Words) >= 100:
+            db = SessionLocal()
+            save_in_database(db, Words)
+            db.close()
+            Words.clear()
+            print('데이터 저장 후 리스트를 비웠습니다.')
 
-    contentWrap = bs.find('div', {'class': 'view_content_wrap'})
-    if contentWrap is None:
-        print('파싱 실패! 다음 글로 넘어갑니다!')
-        return contentCrawler(Words, gallId, int(dataNum)-1, firstUrl, now, period)
-    upTime = contentWrap.find('span', {'class': 'gall_date'})
-    #만약 삭제된 게시글이라 upTime이 None이 지정되면 다음 게시글로 이동해서 파싱
-    if upTime == None:
-        print('파싱 실패! 다음 글로 넘어갑니다!')
-        return contentCrawler(Words, gallId, int(dataNum)-1, firstUrl, now, period)
-    
-    upTimeTitle = upTime.attrs['title']
+        try:
+            url = 'https://gall.dcinside.com/' + firstUrl.rsplit('/', 1)[0] + '/?id={}&no={}&page1'.format(gallId, current_no)
+            req = Request(url, headers= {'User-Agent': 'Mozilla/5.0'})
+            html = urlopen(req)
+        except HTTPError as e:
+            current_no -= 1
+            continue
+        except URLError as e:
+            print('URL에러! 서버와 통신이 안 됨! 강제종료!: {e}')
+            return -1
+        else:
+            current_no -=1
+            print('........크롤링 중........')
 
-    dt = datetime.strptime(upTimeTitle, "%Y-%m-%d %H:%M:%S")
-    diff = now - dt
-    if diff.days < period:
-        title = contentWrap.find('span', {'class': 'title_subject'}).get_text(strip = True)
-        print(title)   
-        Words.append({"gallId": f"{gallId}", "wordContent": f"{title}", "date": f"{dt}"})
+        bs = BeautifulSoup(html, 'html.parser')
+        contentWrap = bs.find('div', {'class': 'view_content_wrap'})
 
-        writeDivP = contentWrap.find('div', {'class':'write_div'})
-        article = writeDivP.get_text(separator= " ", strip= True)
-        Words.append({"gallId": f"{gallId}", "wordContent": f"{article}", "date": f"{dt}"})
-        print(article) 
-        return contentCrawler(Words, gallId, int(dataNum)-1, firstUrl, now, period)  
-          
-    else:
-        print('크롤링을 성공적으로 종료!')
-        return
+        if contentWrap is None:
+            print('파싱 실패! 다음 글로 넘어갑니다!')
+            continue
+        upTime = contentWrap.find('span', {'class': 'gall_date'})
+        #만약 삭제된 게시글이라 upTime이 None이 지정되면 다음 게시글로 이동해서 파싱
+        if upTime == None:
+            print('파싱 실패! 다음 글로 넘어갑니다!')
+            continue
+        
+        upTimeTitle = upTime.attrs['title']
+        dt = datetime.strptime(upTimeTitle, "%Y-%m-%d %H:%M:%S")
+        diff = now - dt
+        if diff.days < period:
+            title = contentWrap.find('span', {'class': 'title_subject'}).get_text(strip = True)
+            print(title)   
+            Words.append({"gallId": f"{gallId}", "wordContent": f"{title}", "date": f"{dt}"})
+
+            writeDivP = contentWrap.find('div', {'class':'write_div'})
+            article = writeDivP.get_text(separator= " ", strip= True)
+            Words.append({"gallId": f"{gallId}", "wordContent": f"{article}", "date": f"{dt}"})
+            print(article) 
+            continue  
+            
+        else:
+            db = SessionLocal()
+            save_in_database(db, Words)
+            db.close()
+            Words.clear()
+            print('크롤링을 성공적으로 종료합니다!')
+            break
 
 
 # 메인 목록 안 bs에서 최근 게시글의 url과 업로드 시간을 가져오고 현재시간과 비교한 후 최근 게시글의 gallid 랑 게시글인덱스 반환 
