@@ -1,11 +1,10 @@
 from sqlalchemy.orm import Session
 from DB_manager import models
-import json
 from DB_manager.database import SessionLocal
+from sqlalchemy.dialects.postgresql import insert
 
 # words는 딕셔너리 자료들의 리스트 
 # def word_list_save(db: Session, words: list):
-
 #     stmt = insert(models.Word).values(words)
 #     try:
 #         db.execute(stmt)
@@ -16,15 +15,17 @@ from DB_manager.database import SessionLocal
 #         print(f"실패! {e}")
 
 def save_in_database(db: Session, word_list: list):
+    stmt = insert(models.Word).values(word_list)
+    upsert_stmt = stmt.on_conflict_do_nothing( index_elements= ['gallId', 'date', 'wordContent'] )
     try:
-        db.add_all([models.Word(**d) for d in word_list]) 
-        db.commit() 
+        db.execute(upsert_stmt)
+        db.commit()
         print("데이터 저장 중!")
         return 0
 
     except Exception as e:
         db.rollback()
-        print(f"crud 오류 발생: {e}")
+        print(f"save_in_weights: 오류 발생: {e}")
         return -1
     
 def export_to_txt():

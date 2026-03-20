@@ -38,7 +38,7 @@ def contentCrawler(Words: list, gallId: str, dataNum: str, firstUrl: str, now: d
             return -1
         else:
             current_no -=1
-            print('........크롤링 중........')
+            print(f'........크롤링 중........({len(Words)} / 100)')
 
         bs = BeautifulSoup(html, 'html.parser')
         contentWrap = bs.find('div', {'class': 'view_content_wrap'})
@@ -118,9 +118,9 @@ def startCrawler(initUrl:str, days: int):
     fLP = firstListParsing(bs, now, period)
     if fLP==-1:
         print('크롤링 실패! 프로세스를 종료합니다.')
-        return Words;    
+        return     
     contentCrawler(Words, fLP[0], fLP[1], fLP[2], now, period)
-    return Words;
+    return 
 
 # if __name__ == "__main__":
 #     main()
