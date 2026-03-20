@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from DB_manager import models
-from DB_manager.database import SessionLocal
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import func
 
 # words는 딕셔너리 자료들의 리스트 
 # def word_list_save(db: Session, words: list):
@@ -28,8 +28,15 @@ def save_in_database(db: Session, word_list: list):
         print(f"save_in_weights: 오류 발생: {e}")
         return -1
     
-def export_to_txt():
-    db = SessionLocal()
+def delete_whitespace_word(db: Session):
+    deleted_count = db.query(models.Word).filter(
+        (func.trim(models.Word.wordContent) == '') | 
+        (models.Word.wordContent == None)
+    ).delete(synchronize_session=False)
+    db.commit()
+    print('공백 데이터 삭제완료!')
+
+def export_to_txt(db: Session):
     all_words = db.query(models.Word.wordContent).all()
     with open('db_content.txt', 'w', encoding='utf-8') as f:
             for row in all_words:
@@ -40,5 +47,4 @@ def export_to_txt():
                     f.write(clean_content + '\n')
 
     print("친구에게 보낼 파일 생성 완료!")
-    db.close()
     return

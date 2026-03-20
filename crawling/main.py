@@ -2,10 +2,10 @@ from fastapi import FastAPI, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from DB_manager.database import engine
+from DB_manager.database import engine, SessionLocal
 from DB_manager import models
 from Crawling import startCrawler
-from crud_crawling import export_to_txt
+from crud_crawling import export_to_txt, delete_whitespace_word
 
 app = FastAPI(title= 'inside-viral Crawler Service')
 
@@ -23,4 +23,5 @@ def task_crawl_and_save(url: str, days: int):
 
 if __name__ == '__main__':
     task_crawl_and_save('https://gall.dcinside.com/mgallery/board/lists?id=stockus', 7)
+    delete_whitespace_word(SessionLocal)
     #export_to_txt()
