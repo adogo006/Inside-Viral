@@ -3,15 +3,12 @@ from soynlp.normalizer import repeat_normalize
 from transformers import pipeline
 from sentence_transformers import SentenceTransformer, util
 import torch
-import json, math, os
+import json, math, os, re
 
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 FILE_PATH = os.path.join(BASE_PATH, 'db_content.txt')
 CACHE_PATH = os.path.join(BASE_PATH, 'sentiment_cache.json')
 WEIGHTS_PATH = os.path.join(BASE_PATH, 'weights.json')
-
-# 단음절 조사 배제 리스트
-PARTICLES = set(["은", "는", "이", "가", "을", "를", "의", "야", "아", "들", "에", "로", "와", "과", "랑", "도", "만", "나", "요", "서", "?", "!", ".", ","])
 
 def load_data(path):
     if not os.path.exists(path):
@@ -28,11 +25,8 @@ def get_sentence_scores(sentences, classifier):
             with open(CACHE_PATH, 'r', encoding='utf-8') as f:
                 if os.path.getsize(CACHE_PATH) > 0:
                     cache = json.load(f)
-                else:
-                    cache = {}
         except json.JSONDecodeError:
             print(f"[!] {CACHE_PATH}가 비어있거나 올바르지 않아 초기화합니다.")
-            cache = {}
 
     scores = []
     to_analyze = []
@@ -51,7 +45,6 @@ def get_sentence_scores(sentences, classifier):
     if to_analyze:
         print(f"{len(to_analyze)}개 문장 분석 시작")
         CHUNK_SIZE = 32
-
         for i in range(0, len(to_analyze), CHUNK_SIZE):
             chunk = to_analyze[i : i + CHUNK_SIZE]
             chunk_indices = analyze_indices[i : i + CHUNK_SIZE]
@@ -59,13 +52,12 @@ def get_sentence_scores(sentences, classifier):
             # 32청크 단위로 분석
             chunk_results = classifier(chunk, truncation=True, max_length=512, batch_size=CHUNK_SIZE)
             for sub_idx, res in enumerate(chunk_results):
-                original_idx = chunk_indices[sub_idx]
+                idx = chunk_indices[sub_idx]
                 val = res['score'] if res['label'] == '1' else -res['score']
-            
-                scores[original_idx] = val
-                cache[sentences[original_idx]] = val
+                scores[idx] = val
+                cache[sentences[idx]] = val
 
-                print(f"[{i + sub_idx + 1}/{len(to_analyze)}] {sentences[original_idx][:30]}... -> {val:.4f}")
+                print(f"[{i + sub_idx + 1}/{len(to_analyze)}] {sentences[idx][:30]}... -> {val:.4f}")
 
             # 묶음 캐시 저장
             with open(CACHE_PATH, 'w', encoding='utf-8') as f:
@@ -73,41 +65,51 @@ def get_sentence_scores(sentences, classifier):
             
     return scores
 
-def calculate_weights(sentences, sentence_scores, all_embeddings, dataset_centroid):
+def calculate_weights(sentences, sentence_scores, all_embeddings, dataset_centroid, classifier):
     word_extractor = WordExtractor()
     word_extractor.train(sentences)
     words = word_extractor.extract()
 
-    # 1. 단어 필터링 (엔트로피, 응집도 기준)
-    filtered = {
+    filtered_candidates = {
         word: score for word, score in words.items()
-        if word not in PARTICLES and
+        if re.search(r'[가-힣]', word) and
         score.leftside_frequency >= 5 and
         score.cohesion_forward >= 0.4 and
-        score.right_branching_entropy >= 0.8
+        score.right_branching_entropy >= 0.5
     }
     
-    print(f"\n선별된 단어: {len(filtered)}개")
+    print(f"\n{len(filtered_candidates)}개 단어 모델 검증 시작")
     
     keyword_weights = {}
-    for word, score in filtered.items():
+    for word, score in filtered_candidates.items():
+        # 단어에 모델이 낸 점수가 극단적(0.95 이상)이면 알고있는 단어
+        test_res = classifier(word, truncation=True)[0]
+        model_confidence = test_res['score']
+        # 모델 확신도가 너무 높으면 배제
+        if model_confidence > 0.92:
+            continue
+
         # 해당 단어가 포함된 문장 인덱스 추출
         indices = [i for i, s in enumerate(sentences) if word in s]
         if not indices: continue
 
-        # 감성 증폭 (지수함수 활용)
+        # 감성 증폭 (지수함수)
         avg_sent = sum(sentence_scores[i] for i in indices) / len(indices)
         sentiment_factor = math.exp(abs(avg_sent) * 3.0) * (1 if avg_sent > 0 else -1)
 
-        # 의미론적 중요도 (SBERT)
+        # 의미론적 중요도
         word_centroid = torch.mean(all_embeddings[indices], dim=0)
         semantic_sim = util.cos_sim(word_centroid, dataset_centroid).item()
 
+        # 신조어(model_confidence가 낮을수록) 가중치를 높여줌
+        novelty_bonus = 2.0 - model_confidence
+
         # 최종 가중치 공식
-        freq_bonus = math.log(score.leftside_frequency + 1)
-        weight = (sentiment_factor * score.cohesion_forward) * (semantic_sim + 0.1 * freq_bonus)
+        weight = (sentiment_factor * score.cohesion_forward) * (semantic_sim * novelty_bonus)
         
-        keyword_weights[word] = round(weight, 4)
+        # 가중치 임계값 필터링
+        if abs(weight) > 0.5:
+            keyword_weights[word] = round(weight, 4)
 
     return keyword_weights
 
@@ -122,7 +124,9 @@ def main():
     print("모델 로드 완료")
 
     # 전체 문장 임베딩 및 중심점 계산
+    # 의미가 비슷한 문장을 좌표 평면상에서 가까운 거리에 위치
     all_embeddings = st_model.encode(sentences, convert_to_tensor=True)
+    # 문장들의 평균 위치인 중심점으로 데이터의 평균 주제를 도출
     dataset_centroid = torch.mean(all_embeddings, dim=0)
     print("문장 임베딩 및 중심점 계산 완료")
 
@@ -131,11 +135,12 @@ def main():
     print("문장 캐싱 및 감정분석 완료")
 
     # 가중치 계산 및 저장
-    weights = calculate_weights(sentences, sentence_scores, all_embeddings, dataset_centroid)
+    weights = calculate_weights(sentences, sentence_scores, all_embeddings, dataset_centroid, classifier)
     print("단어 가중치 계산 및 저장 완료")
     
+    sorted_weights = dict(sorted(weights.items(), key=lambda x: abs(x[1]), reverse=True))
     with open(WEIGHTS_PATH, 'w', encoding='utf-8') as f:
-        json.dump(weights, f, ensure_ascii=False, indent=4)
+        json.dump(sorted_weights, f, ensure_ascii=False, indent=4)
         
     print(f"\n-- 생성 완료: {WEIGHTS_PATH} --")
 
