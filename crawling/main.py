@@ -13,15 +13,15 @@ class CrawlerRequest(BaseModel):
     url: str
     days : int
 
-def task_crawl_and_save(url: str, days: int):
+def task_crawl_and_save(url: str, days: int, previousDays: int):
     models.Base.metadata.create_all(bind = engine)
     print('(API)크롤링을 시작합니다.')
-    startCrawler(url, days)
+    startCrawler(url, days, previousDays)
     print('(API)크롤링을 종료합니다.')
 
 
 
 if __name__ == '__main__':
-    task_crawl_and_save('https://gall.dcinside.com/mgallery/board/lists?id=stockus', 7)
+    task_crawl_and_save('https://gall.dcinside.com/mgallery/board/lists/?id=stockus', 30, 120)
     delete_whitespace_word(SessionLocal)
     #export_to_txt()

@@ -77,45 +77,83 @@ def contentCrawler(Words: list, gallId: str, dataNum: str, firstUrl: str, now: d
 
 
 # 메인 목록 안 bs에서 최근 게시글의 url과 업로드 시간을 가져오고 현재시간과 비교한 후 최근 게시글의 gallid 랑 게시글인덱스 반환 
-def firstListParsing(bs, now, period):
-    
-    list = bs.find('tr', {'class': 'ub-content us-post', 'data-type': ['icon_txt', 'icon_pic']})
-    if list == None:
-        print('list 파싱 에러')
-        return -1
-    #만약 삭제된 게시글이라 upTime이 None이 지정되면 다음 게시글로 이동해서 파싱
-    
-    upTime = list.find('td', {'class': 'gall_date'})
-    if upTime == None:
-        print('upTime 파싱 에러')
-        return -1
-    
-    upTimeTitle = upTime.attrs['title']
-    dt = datetime.strptime(upTimeTitle, "%Y-%m-%d %H:%M:%S")
-    diff = now - dt
-    if (diff.days <= period):
-        firstNum = list.attrs['data-no']
-        gallName = bs.find('button',{'id':'headTail_tab_gall'}).find('p',{'class': 'gallname'}).attrs['data-gallid']
-        firstUrl = list.find('a').attrs['href']
-        print('첫 게시글({}) 파싱 성공!'.format(gallName))
-        return gallName, firstNum, firstUrl
-    else:
-        print('최근 {}일 내의 게시물 이 없습니다!'.format(period))
-        return -1
+def firstListParsing(initUrl: str, now: datetime, previousDays: int):
+    errorPoint = 0
+    count = 1
 
-#!!!!!반드시 vpn 키고 돌릴것!!!!!
-# url과 시간을 받으면 그 시간안에 메인페이지 안에 있는 모든 게시글과 내용을 받음
-def startCrawler(initUrl:str, days: int):
-    now = datetime.now()
-    period = days #{perid}일 기준 이내 게시글 크롤링
-    # 메인페이지 url로 html 파싱 시작
     url = initUrl
     req = Request(url, headers= {'User-Agent': 'Mozilla/5.0'})
     html = urlopen(req)
     bs = BeautifulSoup(html, 'html.parser')
+    initList = bs.find('tr', {'class': 'ub-content us-post', 'data-type': ['icon_txt', 'icon_pic']})
+    if initList == None:
+        print('첫 게시글을 여는데 문제가 생겼습니다.')
+        return -1
+    
+    dataNum = int(initList.attrs['data-no'])
+    url = initList.find('a').attrs['href'] 
+    url2 = url.rsplit('/', 1)[0]
+    gallId = bs.find('button',{'id':'headTail_tab_gall'}).find('p',{'class': 'gallname'}).attrs['data-gallid']
+
+    while 1:
+        if errorPoint > 50 or count > 100:
+            print('해당하는 날짜의 게시글을 불러오지 못했습니다!')
+            return -1 
+        time.sleep(0.1 * randint(1,4))
+
+        try:
+            url = 'https://gall.dcinside.com/' + url2 + '/?id={}&no={}&page1'.format(gallId, dataNum)
+            req = Request(url, headers= {'User-Agent': 'Mozilla/5.0'})
+            html = urlopen(req)
+        except HTTPError as e:
+            dataNum -= 1
+            errorPoint += 1
+            continue
+        except URLError as e:
+            dataNum -= 1
+            errorPoint += 1
+            continue
+        else:
+            print(f'해당하는 날짜의 게시글을 찾는 중입니다...반복횟수: {count}번, 현재 dataNum: {dataNum}, 에러횟수: {errorPoint}번')
+
+        bs = BeautifulSoup(html, 'html.parser')
+        #아래 함수 수정필요!
+        upTime = bs.find('span', {'class': 'gall_date'})
+
+        if upTime == None:
+            dataNum -= 1
+            errorPoint += 1
+            continue
+            
+        upTimeTitle = upTime.attrs['title']
+        dt = datetime.strptime(upTimeTitle, "%Y-%m-%d %H:%M:%S")
+        diffDays = (now - dt).days
+        print('서칭알고리즘 도착')
+
+        if diffDays > previousDays:
+            #찾을려는 게시글보다 더 이전의 글이므로 dataNum(미국주식갤러리 같은 경우에는 현재 1400만) 증가 
+            # diffDays 랑 previousDays 차이가 큰경우 크게
+            dataNum += int((diffDays - previousDays)/(diffDays+previousDays) * (dataNum//(count+1)))
+            count +=1
+            continue
+        elif diffDays < previousDays:
+            #찾을려는 게시글보다 더 이 후의 글이므로 dataNum 감소 필요
+            dataNum -= int((previousDays - diffDays)/(diffDays+previousDays) * (dataNum//(count+1)))
+            count += 1
+            continue
+        else:    
+            print(f'탐색성공! 탐색횟수 {count}번')
+            return gallId, dataNum, url.split('/', 3)[3]
+
+#!!!!!반드시 vpn 키고 돌릴것!!!!!
+# url과 시간을 받으면 그 시간안에 메인페이지 안에 있는 모든 게시글과 내용을 받음
+def startCrawler(initUrl:str, days: int, previousDays: int = 0):
+    now = datetime.now()
+    period = days #{perid}일 기준 이내 게시글 크롤링
+    # 메인페이지 url로 html 파싱 시작
     Words = []
     # 크롤링 시점 기준 가장 최근 게시글 파싱 함수 ; 리턴 : gallid, 게시글번호 ; 만약, 설정한 기간내의 게시글이 없을때 -1 반환
-    fLP = firstListParsing(bs, now, period)
+    fLP = firstListParsing(initUrl, now, previousDays)
     if fLP==-1:
         print('크롤링 실패! 프로세스를 종료합니다.')
         return     
