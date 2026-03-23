@@ -157,7 +157,8 @@ def startCrawler(initUrl:str, days: int, previousDays: int = 0):
     if fLP==-1:
         print('크롤링 실패! 프로세스를 종료합니다.')
         return     
-    contentCrawler(Words, fLP[0], fLP[1], fLP[2], now, period)
+    # 마지막인자는 {prviousDays} 일 후 {period} 일 기간 동안의 데이터를 크롤링한다는 의미
+    contentCrawler(Words, fLP[0], fLP[1], fLP[2], now, period+previousDays)
     return 
 
 # if __name__ == "__main__":
