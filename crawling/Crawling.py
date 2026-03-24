@@ -128,7 +128,6 @@ def firstListParsing(initUrl: str, now: datetime, previousDays: int):
         upTimeTitle = upTime.attrs['title']
         dt = datetime.strptime(upTimeTitle, "%Y-%m-%d %H:%M:%S")
         diffDays = (now - dt).days
-        print('서칭알고리즘 도착')
 
         if diffDays > previousDays:
             #찾을려는 게시글보다 더 이전의 글이므로 dataNum(미국주식갤러리 같은 경우에는 현재 1400만) 증가 

@@ -7,3 +7,4 @@ sqlalchemy
 psycopg2-binary       
  # PostgreSQL 파이썬 드라이버
 python-dotenv 
+ # db 환경파일 접근 용도 
