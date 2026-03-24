@@ -1,8 +1,8 @@
 {
   "name": "InsideViral-Dev-Container",
-  "dockerComposeFile": "../DB_env/docker-compose.yml",
-  "service": "crawler",
-  "runServices": ["db", "crawler", "db_manager"],
+  "dockerComposeFile": "./docker-compose.yml",
+  "service": "api",
+  "runServices": ["db", "crawler", "api"],
   "workspaceFolder": "/workspaces",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:1": {
@@ -19,7 +19,11 @@
         "mtxr.sqltools-driver-pg",
         "ms-azuretools.vscode-docker",
         "ms-python.isort",
-        "ms-python.black-formatter"
+        "ms-python.black-formatter",
+        "humao.rest-client",          // API 테스트용 (강력 추천)
+        "njpwerner.autodocstring",    // 문서화 자동화
+        "tamasfe.even-better-toml",   // TOML 설정 파일 지원
+        "exiasr.stats"                // 컨테이너 리소스 모니터링
       ]
     }
   }
