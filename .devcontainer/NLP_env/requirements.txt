@@ -1,0 +1,9 @@
+transformers
+sentence-transformers
+torch --index-url https://download.pytorch.org/whl/cpu
+soynlp
+pandas
+
+sqlalchemy
+psycopg2-binary
+python-dotenv 

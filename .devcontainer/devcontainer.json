@@ -1,8 +1,8 @@
 {
   "name": "InsideViral-Dev-Container",
   "dockerComposeFile": "./docker-compose.yml",
-  "service": "api",
-  "runServices": ["db", "crawler", "api"],
+  "service": "nlp",
+  "runServices": ["db", "crawler", "api", "nlp"],
   "workspaceFolder": "/workspaces",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:1": {
@@ -26,5 +26,6 @@
         "exiasr.stats"                // 컨테이너 리소스 모니터링
       ]
     }
-  }
+  },
+  "remoteUser": "root"
 }
