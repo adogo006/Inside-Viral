@@ -35,4 +35,4 @@ def read_root():
 # /crawl/{gall_main_url}?days=x&days_ago=y
 async def request_crawling(gall_main_url: str, days: int =1, days_ago: int = 0):    
     response = await client.get
-    return {"status": "success", "message": f"Crawling started for {gall_id}"}
+    return {"status": "success", "message": f"Crawling started for {gall_main_url}"}
