@@ -10,4 +10,3 @@ httpx # 다른 컨테이너로 요청이나 신호를 보내기 위한 라이브
 #----------db조작용 라이브러리----------------
 sqlalchemy
 psycopg2-binary
-python-dotenv 

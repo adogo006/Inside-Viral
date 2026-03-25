@@ -6,4 +6,3 @@ sqlalchemy         # DB 연동 (기존 DB 매니저 활용)
 psycopg2-binary    # PostgreSQL 드라이버
 pydantic           # 데이터 모델 정의
 #sqlmodel           # fastapi 연동
-
