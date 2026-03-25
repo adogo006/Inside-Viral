@@ -8,6 +8,8 @@ services:
       POSTGRES_USER: inside
       POSTGRES_PASSWORD: Viral
       POSTGRES_DB: insideViral_db
+    networks:
+      - insideViral-net  
     volumes:
       - postgres-data:/var/lib/postgresql/data # 데이터 보존을 위한 볼륨
 
@@ -22,7 +24,9 @@ services:
     environment:
       - PYTHONPATH=/workspaces         # 중요! /workspaces를 탐색 경로에 추가
     ports:
-      - "8000:8000"
+      - "8000:8000"                    # 외부 사용자는 오직 이 포트로만 접근할 수 있음
+    networks:
+      - insideViral-net                # 내부사용자가 사용하는 net
     depends_on:
       - db
     
@@ -35,8 +39,10 @@ services:
     working_dir: /workspaces/crawling   # 컨테이너 시작 시 크롤러 폴더에서 시작
     environment:
       - PYTHONPATH=/workspaces         # 중요! /workspaces를 탐색 경로에 추가
-    tty: true
-    stdin_open: true
+    tty: true # 서버 안죽게 하기위해 대기상태 만들기
+    stdin_open: true # 서버 안죽게 하기위해 대기상태 
+    networks:
+      - insideViral-net
     depends_on:
       - db
 
@@ -51,8 +57,14 @@ services:
       - PYTHONPATH=/workspaces         # 중요! /workspaces를 탐색 경로에 추가
     tty: true
     stdin_open: true
+    networks:
+      - insideViral-net
     depends_on:
       - db
   
 volumes:
   postgres-data:
+
+networks:
+  insideViral-net:
+    driver: bridge

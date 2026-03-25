@@ -3,7 +3,11 @@ sentence-transformers
 torch --index-url https://download.pytorch.org/whl/cpu
 soynlp
 pandas
-
+#------------------------------------------
+fastapi # 서버 요청을 받기위한 api라이브러리
+uvicorn[standard] # 컨테이너 내부 포트 설정용 라이브러리
+httpx # 다른 컨테이너로 요청이나 신호를 보내기 위한 라이브러리
+#----------db조작용 라이브러리----------------
 sqlalchemy
 psycopg2-binary
 python-dotenv 

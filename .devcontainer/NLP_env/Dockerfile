@@ -16,3 +16,6 @@ ENV SENTENCE_TRANSFORMERS_HOME=/root/.cache/torch/sentence_transformers
 COPY . .
 
 RUN python3 NLP/download_models.py
+
+# uvicorn으로 서버 실행 (8001 포트)
+# CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]

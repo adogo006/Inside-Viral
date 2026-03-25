@@ -1,7 +1,10 @@
-beautifulsoup4
+# ------크롤링 라이브러리-------
 fastapi
 uvicorn
 requests
+httpx # html 비동기 요청용 라이브러리
+beautifulsoup4
+#-----db 조작용 라이브러리-------
 sqlalchemy            
  # 파이썬 DB 관리 도구 (ORM)
 psycopg2-binary       
@@ -10,3 +13,5 @@ python-dotenv
  # db 환경파일 접근 용도 
  alembic 
  # db 테이블 수정 용도
+ 
+ 
