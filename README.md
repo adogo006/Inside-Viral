@@ -1,12 +1,18 @@
-<<<<<<< HEAD
-# Inside-Viral
-=======
-# Inside-Viral
-* @dataclass
-* class Word:
-*    gallId: str #갤러리 아이디
-*    time: datetime #업로드 시간
-*    wordContent: str # 단어 내용
-*    sentiment : float = 0.0 # 그래프 그릴때사용할 감성 지수
-* postgresql db서버 입니다.
->>>>>>> feature/FastApi
+DB에 NLP 기능 연결 구현
+
+---
+
+## 작업방식의 변화
+
+### AI Agent 사용
+
+Claude Code framework에 ollama 제공 cloud model을 실행
+
+1. Claude Code, Git Bash, Ollama 설치
+2. 시스템 환경 설정 Path 추가
+3. VS Code에 "Claude Code for VS Code" Extension install
+4. terminal에서 claude 실행
+5. ctrl + c
+6. ollama model 실행 코드 입력
+
+model 실행 코드 예시 : ollama launch claude --model qwen3.5

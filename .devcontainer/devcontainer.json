@@ -1,7 +1,7 @@
 {
   "name": "InsideViral-Dev-Container",
   "dockerComposeFile": "./docker-compose.yml",
-  "service": "api",
+  "service": "nlp",
   "runServices": ["db", "crawler", "api", "nlp"],
   "workspaceFolder": "/workspaces",
   "features": {
