@@ -1,60 +1,131 @@
-from fastapi import FastAPI, Depends, HTTPException
-from DB_manager.database import SessionLocal # 기존에 만드신 DB 설정 파일
-from crawling.main import task_crawl_and_save
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
+from datetime import datetime, timezone
 
-import uuid # 각 요청별 고유 id 생성을 위한 라이브러리
-import httpx
-import asyncio
 import os
+import uuid
+import httpx
+
 
 app = FastAPI(title="InsideViral API")
-#insideViral-net 전용 내부포트 URL
-# DB 세션 의존성 주입 (매 요청마다 DB 연결/해제 관리)
-def get_db():
-    db = SessionLocal()
+
+# NOTE: demo용 메모리 저장소. 운영에서는 Redis/DB로 교체하세요.
+crawl_requests: dict[str, dict] = {}
+
+
+class CrawlRelayRequest(BaseModel):
+    gall_main_url: str = Field(..., description="dcinside gallery list url")
+    days: int = Field(1, ge=1, description="collect target days")
+    days_ago: int = Field(0, ge=0, description="start offset days ago")
+
+
+class CrawlerCallbackPayload(BaseModel):
+    request_id: str
+    status: Literal["succeeded", "failed"]
+    error_message: Optional[str] = None
+    finished_at: Optional[str] = None
+    saved_rows: Optional[int] = None
+
+
+async def notify_user_or_admin(request_id: str, status: str, error_message: Optional[str] = None, saved_rows: Optional[int] = None):
+    """콜백 수신 후 알림 훅. 기본은 로그 출력, 필요 시 웹훅으로 확장."""
+    print(f"[NOTIFY] request_id={request_id} status={status} saved_rows={saved_rows} error={error_message}")
+    webhook_url = os.getenv("ADMIN_WEBHOOK_URL")
+
+    if not webhook_url:
+        return
+
+    payload = {
+        "request_id": request_id,
+        "status": status,
+        "error_message": error_message,
+        "saved_rows": saved_rows,
+    }
     try:
-        yield db
-    finally:
-        db.close()
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.post(webhook_url, json=payload)
+    except Exception as exc:
+        print(f"[NOTIFY] webhook failed: {exc}")
+
 
 @app.get("/")
 def read_root():
     return {"message": "Welcome to InsideViral API Server"}
 
 
-# 2. 크롤링 시작 명령 (POST 요청)
-@app.post("/crawl/{gall_main_url}")
-# /crawl/{gall_main_url}?days=x&days_ago=y
-async def request_api_crawling(gall_main_url: str, days: int =1, days_ago: int = 0):
+@app.get("/crawl/{request_id}")
+def get_crawl_status(request_id: str):
+    request_data = crawl_requests.get(request_id)
+    if request_data is None:
+        raise HTTPException(status_code=404, detail="request_id not found")
+    return request_data
+
+
+@app.post("/crawl/callback")
+async def crawl_callback(payload: CrawlerCallbackPayload):
+    request_data = crawl_requests.get(payload.request_id)
+    if request_data is None:
+        raise HTTPException(status_code=404, detail="request_id not found")
+
+    finished_at = payload.finished_at or datetime.now(timezone.utc).isoformat()
+    request_data["status"] = payload.status
+    request_data["error_message"] = payload.error_message
+    request_data["finished_at"] = finished_at
+    request_data["saved_rows"] = payload.saved_rows
+
+    await notify_user_or_admin(payload.request_id, payload.status, payload.error_message, payload.saved_rows)
+    return {"message": "callback accepted", "request_id": payload.request_id}
+
+
+@app.post("/crawl")
+async def request_api_crawling(payload: CrawlRelayRequest):
+    crawler_url = os.getenv("CRAWLER_URL")
+    if not crawler_url:
+        raise HTTPException(status_code=500, detail="CRAWLER_URL is not configured")
+
     request_id = str(uuid.uuid4())
-    query_params = {
-        "gall_main_url" : gall_main_url,
-        "days" : days,
-        "days_ago" : days_ago,
-        "request_id": request_id
+    body = {
+        "url": payload.gall_main_url,
+        "days": payload.days,
+        "previous_days": payload.days_ago,
+        "request_id": request_id,
+        "callback_url": os.getenv("API_CALLBACK_URL"),
     }
 
-    async def send_to_crawler():
-        async with httpx.AsyncClient() as client:    
-            try:
-                response = await client.post(os.getenv('CRAWLER_URL'), '/crawl/', params= query_params, timeout= None)
-                if response.status_code == 200:
-                        response_request_id = response.json()["request_id"]
-                        if response_request_id == request_id:
-                            print(f"요청이 성공적으로 크롤링 컨테이너에 수신되었습니다")
-                else:
-                    print(f"에러 {response.status_code}가 발생하여 요청 {request_id}을 크롤링 컨테이너에 전송하지 못했습니다")
-            except Exception as e:
-                print(f"크롤링 요청 실패 {e}")
+    crawl_requests[request_id] = {
+        "request_id": request_id,
+        "status": "pending_dispatch",
+        "gall_main_url": payload.gall_main_url,
+        "days": payload.days,
+        "days_ago": payload.days_ago,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "finished_at": None,
+        "error_message": None,
+        "saved_rows": 0,
+    }
 
-            # except httpx.HTTPStatusError as e:
-            #     # 상대 컨테이너 오류 응답
-            #     raise HTTPException(status_code=e.response.status_code, detail="컨테이너 통신 오류")
-            # except httpx.RequestError:
-            #     # 연결 자체가 안 되는 경우 (컨테이너가 꺼져있을 때 등)
-            #     raise HTTPException(status_code=503, detail="크롤러 서비스에 연결할 수 없습니다.")
+    endpoint = crawler_url.rstrip("/") + "/crawl"
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(endpoint, json=body)
+            response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text if exc.response is not None else "crawler http error"
+        raise HTTPException(status_code=502, detail=f"crawler rejected request: {detail}")
+    except httpx.RequestError as exc:
+        crawl_requests[request_id]["status"] = "dispatch_failed"
+        crawl_requests[request_id]["error_message"] = str(exc)
+        raise HTTPException(status_code=503, detail=f"crawler unavailable: {exc}")
 
-async with httpx.AsyncClient() as client:
-    try: 
-        response = await client.post(os.getenv('CRAWLER_URL'), '/crawl', params=)
+    data = response.json()
+    crawl_requests[request_id]["status"] = data.get("status", "queued")
+    print(f"Crawl request({request_id}) successfully accepted by crawler")
+    return {
+        "message": "crawl request accepted",
+        "api_request_id": request_id,
+        "crawler_request_id": data.get("request_id", request_id),
+        "status": data.get("status", "queued")
+    }
+     
     

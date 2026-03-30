@@ -1,0 +1,9 @@
+### 크롤링 요청 테스트
+POST http://crawler:8002/crawl
+Content-Type: application/json
+
+{
+    "url": "https://gall.dcinside.com/mgallery/board/lists?id=projectmx",
+    "days": 1,
+    "previous_days": 10
+}
