@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from DB_manager.database import SessionLocal # 기존에 만드신 DB 설정 파일
 from crawling.main import task_crawl_and_save
 
+import uuid # 각 요청별 고유 id 생성을 위한 라이브러리
 import httpx
 import asyncio
 import os
@@ -20,37 +21,40 @@ def get_db():
 def read_root():
     return {"message": "Welcome to InsideViral API Server"}
 
-# 1. 특정 갤러리의 데이터 가져오기 (예: 공포 지수 산출용)
-# @app.get("/words/{gall_id}", response_model=List[schemas.Word])
-# def get_gallery_data(gall_id: str, db: Session = Depends(get_db)):
-#     data = db.query(models.Word).filter(models.Word.gallId == gall_id).all()
-#     if not data:
-#         raise HTTPException(status_code=404, detail="Gallery data not found")
-#     return data
 
 # 2. 크롤링 시작 명령 (POST 요청)
 @app.post("/crawl/{gall_main_url}")
 # /crawl/{gall_main_url}?days=x&days_ago=y
-async def request_crawling(gall_main_url: str, days: int =1, days_ago: int = 0):
+async def request_api_crawling(gall_main_url: str, days: int =1, days_ago: int = 0):
+    request_id = str(uuid.uuid4())
     query_params = {
         "gall_main_url" : gall_main_url,
         "days" : days,
-        "days_ago" : days_ago
+        "days_ago" : days_ago,
+        "request_id": request_id
     }
 
-    async with httpx.AsyncClient() as client:    
-        try:
-            response = await client.get(os.getenv('CRAWLER_URL'), params= query_params, timeout= 10.0)
-        
-            response.raise_for_status()
-            
-            return response.json()
-        
-        except httpx.HTTPStatusError as e:
-            # 상대 컨테이너 오류 응답
-            raise HTTPException(status_code=e.response.status_code, detail="컨테이너 통신 오류")
-        except httpx.RequestError:
-            # 연결 자체가 안 되는 경우 (컨테이너가 꺼져있을 때 등)
-            raise HTTPException(status_code=503, detail="크롤러 서비스에 연결할 수 없습니다.")
+    async def send_to_crawler():
+        async with httpx.AsyncClient() as client:    
+            try:
+                response = await client.post(os.getenv('CRAWLER_URL'), '/crawl/', params= query_params, timeout= None)
+                if response.status_code == 200:
+                        response_request_id = response.json()["request_id"]
+                        if response_request_id == request_id:
+                            print(f"요청이 성공적으로 크롤링 컨테이너에 수신되었습니다")
+                else:
+                    print(f"에러 {response.status_code}가 발생하여 요청 {request_id}을 크롤링 컨테이너에 전송하지 못했습니다")
+            except Exception as e:
+                print(f"크롤링 요청 실패 {e}")
 
-    return {"status": "success", "message": f"Crawling started for {gall_main_url}"}
+            # except httpx.HTTPStatusError as e:
+            #     # 상대 컨테이너 오류 응답
+            #     raise HTTPException(status_code=e.response.status_code, detail="컨테이너 통신 오류")
+            # except httpx.RequestError:
+            #     # 연결 자체가 안 되는 경우 (컨테이너가 꺼져있을 때 등)
+            #     raise HTTPException(status_code=503, detail="크롤러 서비스에 연결할 수 없습니다.")
+
+async with httpx.AsyncClient() as client:
+    try: 
+        response = await client.post(os.getenv('CRAWLER_URL'), '/crawl', params=)
+    

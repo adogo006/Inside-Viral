@@ -23,7 +23,8 @@
         "humao.rest-client",          // API 테스트용 (강력 추천)
         "njpwerner.autodocstring",    // 문서화 자동화
         "tamasfe.even-better-toml",   // TOML 설정 파일 지원
-        "exiasr.stats"                // 컨테이너 리소스 모니터링
+        "GitHub.copilot-chat",
+        "continue.continue"           // Continue 확장 자동 설치
       ]
     }
   },
