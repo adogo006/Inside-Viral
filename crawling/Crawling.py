@@ -5,8 +5,34 @@ from DB_manager.database import SessionLocal
 
 from bs4 import BeautifulSoup
 from datetime import datetime
-from random import randint
+from random import randint, choice
 from crud_crawling import save_in_database
+
+
+REQUEST_HEADERS_POOL = [
+    {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Connection': 'keep-alive',
+    },
+    {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Connection': 'keep-alive',
+    },
+    {
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Connection': 'keep-alive',
+    },
+]
+
+
+def get_random_headers() -> dict:
+    return choice(REQUEST_HEADERS_POOL).copy()
 
 
 # html 내부 div 태그 class 속성 view_content_wrap 내부에서 제목 글 시간 모두 크롤링 가능 
@@ -27,7 +53,7 @@ async def contentCrawler(Words: list, gallId: str, dataNum: str, firstUrl: str, 
 
             try:
                 url = 'https://gall.dcinside.com/' + firstUrl.rsplit('/', 1)[0] + '/?id={}&no={}&page1'.format(gallId, current_no)
-                response = await client.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+                response = await client.get(url, headers=get_random_headers())
                 response.raise_for_status()
                 html = response.text
             except httpx.HTTPStatusError as e:
@@ -83,7 +109,7 @@ async def firstListParsing(initUrl: str, now: datetime, previousDays: int):
 
     url = initUrl
     async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+        response = await client.get(url, headers=get_random_headers())
         html = response.text
         bs = BeautifulSoup(html, 'html.parser')
         initList = bs.find('tr', {'class': 'ub-content us-post', 'data-type': ['icon_txt', 'icon_pic']})
@@ -104,7 +130,7 @@ async def firstListParsing(initUrl: str, now: datetime, previousDays: int):
 
             try:
                 url = 'https://gall.dcinside.com/' + url2 + '/?id={}&no={}&page1'.format(gallId, dataNum)
-                response = await client.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+                response = await client.get(url, headers=get_random_headers())
                 response.raise_for_status()
                 html = response.text
             except httpx.HTTPStatusError as e:
