@@ -26,7 +26,7 @@ Content-Type: application/json
 {
     "url": "https://gall.dcinside.com/board/lists/?id=bitcoins_new1",
     "days": 1,
-    "previous_days": 0
+    "previous_days": 4
 }
 
 ### 블루아카이브 갤러리 크롤링 요청 테스트
@@ -46,5 +46,5 @@ Content-Type: application/json
 {
     "url": "https://gall.dcinside.com/mgallery/board/lists/?id=tenbagger",
     "days": 1,
-    "previous_days": 0
+    "previous_days": 10
 }

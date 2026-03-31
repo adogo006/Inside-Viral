@@ -53,7 +53,7 @@ async def contentCrawler(Words: list, gallId: str, dataNum: str, firstUrl: str, 
                 url = 'https://gall.dcinside.com' + firstUrl.rsplit('/', 1)[0] + '/?id={}&no={}&page1'.format(gallId, current_no)
                 response = await client.get(url, headers=selected_headers)
                 response.raise_for_status()
-                html = response.text
+                html = response.text 
             except httpx.HTTPStatusError as e:
                 current_no -= 1
                 continue
@@ -68,16 +68,18 @@ async def contentCrawler(Words: list, gallId: str, dataNum: str, firstUrl: str, 
             contentWrap = bs.find('div', {'class': 'view_content_wrap'})
 
             if contentWrap is None:
+                if not html or len(html.strip()) < 1000:
+                    crawler_log('IP 차단이 의심됩니다.', request_id, gallId)
+                    return -1, save_count
+
                 crawler_log('파싱 실패! 다음 글로 넘어갑니다!', request_id, gallId)
-                failed_count += 1
-                await asyncio.sleep(0.1 * randint(100, 150))
+                await asyncio.sleep(0.1 * randint(20, 40))
                 continue
             upTime = contentWrap.find('span', {'class': 'gall_date'})
             #만약 삭제된 게시글이라 upTime이 None이 지정되면 다음 게시글로 이동해서 파싱
             if upTime == None:
                 crawler_log('파싱 실패! 다음 글로 넘어갑니다!', request_id, gallId)
-                failed_count += 1
-                await asyncio.sleep(0.1 * randint(100, 150))
+                await asyncio.sleep(0.1 * randint(20, 40))
                 continue
 
             upTimeTitle = upTime.attrs['title']
