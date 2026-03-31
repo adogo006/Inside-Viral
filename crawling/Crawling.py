@@ -9,80 +9,99 @@ from random import randint
 from crud_crawling import save_in_database
 
 
-REQUEST_HEADERS = {'User-Agent': 'Mozilla/5.0'}
+
+# 다양한 User-Agent 헤더 리스트 정의
+REQUEST_HEADERS_LIST = [
+    {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'},
+    {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15'},
+    {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'},
+    {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0'},
+    {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'},
+]
 
 
-def crawler_log(message: str, request_id: str | None = None):
-    print(f"[Crawler] {message}")
+def crawler_log(message: str, request_id: str | None = None, gallId: str | None = None):
+    if gallId is not None:
+        print(f"[Crawler:{gallId}] {message}")
+    else:
+        print(f"[Crawler] {message}")
 
 
 # html 내부 div 태그 class 속성 view_content_wrap 내부에서 제목 글 시간 모두 크롤링 가능 
 # 
 # 본문의 제목 크롤링 함수, 1.기간내의 게시물인지 확인 2. 제목과 게시글 파싱 및 단어리스트 반환
 async def contentCrawler(Words: list, gallId: str, dataNum: str, firstUrl: str, now: datetime, period: int, request_id: str | None = None):
+
     current_no = int(dataNum)
     save_count = 0
 
+    # 반복문에서 사용할 헤더를 랜덤으로 하나 선택
+    selected_headers = REQUEST_HEADERS_LIST[randint(0, len(REQUEST_HEADERS_LIST)-1)]
+
     async with httpx.AsyncClient() as client:
-        while 1 :
-            await asyncio.sleep(0.1 * randint(1, 4))  
+        while 1:
+            await asyncio.sleep(0.1 * randint(10, 30))
             if len(Words) >= 100:
                 db = SessionLocal()
                 save_in_database(db, Words)
                 db.close()
                 Words.clear()
                 save_count += 1
-                crawler_log('데이터 저장 후 리스트를 비웠습니다.', request_id)
+                crawler_log('데이터 저장 후 리스트를 비웠습니다.', request_id, gallId)
 
             try:
                 url = 'https://gall.dcinside.com' + firstUrl.rsplit('/', 1)[0] + '/?id={}&no={}&page1'.format(gallId, current_no)
-                response = await client.get(url, headers=REQUEST_HEADERS)
+                response = await client.get(url, headers=selected_headers)
                 response.raise_for_status()
                 html = response.text
             except httpx.HTTPStatusError as e:
                 current_no -= 1
                 continue
             except httpx.RequestError as e:
-                crawler_log(f'URL에러! 서버와 통신이 안 됨! 강제종료!: {e}', request_id)
+                crawler_log(f'URL에러! 서버와 통신이 안 됨! 강제종료!: {e}', request_id, gallId)
                 return -1, save_count
             else:
-                current_no -=1
-                crawler_log(f'........크롤링 중........({len(Words)} / 100)', request_id)
+                current_no -= 1
+                crawler_log(f'........크롤링 중........({len(Words)} / 100)', request_id, gallId)
 
             bs = BeautifulSoup(html, 'html.parser')
             contentWrap = bs.find('div', {'class': 'view_content_wrap'})
 
             if contentWrap is None:
-                crawler_log('파싱 실패! 다음 글로 넘어갑니다!', request_id)
+                crawler_log('파싱 실패! 다음 글로 넘어갑니다!', request_id, gallId)
+                failed_count += 1
+                await asyncio.sleep(0.1 * randint(100, 150))
                 continue
             upTime = contentWrap.find('span', {'class': 'gall_date'})
             #만약 삭제된 게시글이라 upTime이 None이 지정되면 다음 게시글로 이동해서 파싱
             if upTime == None:
-                crawler_log('파싱 실패! 다음 글로 넘어갑니다!', request_id)
+                crawler_log('파싱 실패! 다음 글로 넘어갑니다!', request_id, gallId)
+                failed_count += 1
+                await asyncio.sleep(0.1 * randint(100, 150))
                 continue
-            
+
             upTimeTitle = upTime.attrs['title']
             dt = datetime.strptime(upTimeTitle, "%Y-%m-%d %H:%M:%S")
             dt = dt.replace(tzinfo=timezone(timedelta(hours=9)))
-            diff = now - dt          
+            diff = now - dt
             if diff.days < period:
-                title = contentWrap.find('span', {'class': 'title_subject'}).get_text(strip = True)
-                crawler_log(f'제목: {title}', request_id)
+                title = contentWrap.find('span', {'class': 'title_subject'}).get_text(strip=True)
+                crawler_log(f'제목: {title}', request_id, gallId)
                 # Words.append({"gallId": f"{gallId}", "wordContent": f"{title}", "date": f"{dt}"})
 
-                writeDivP = contentWrap.find('div', {'class':'write_div'})
-                article = writeDivP.get_text(separator= " ", strip= True)
+                writeDivP = contentWrap.find('div', {'class': 'write_div'})
+                article = writeDivP.get_text(separator=" ", strip=True)
                 titleArticle = title + ' ' + article
                 Words.append({"gallId": f"{gallId}", "wordContent": f"{titleArticle}", "date": f"{dt}"})
-                crawler_log(f'본문: {article}', request_id)
-                continue  
-                
+                crawler_log(f'본문: {article}', request_id, gallId)
+                continue
+
             else:
                 db = SessionLocal()
                 save_in_database(db, Words)
                 db.close()
                 Words.clear()
-                crawler_log('크롤링을 성공적으로 종료합니다!', request_id)
+                crawler_log('크롤링을 성공적으로 종료합니다!', request_id, gallId)
                 return 0, save_count
 
 
@@ -92,8 +111,9 @@ async def firstListParsing(initUrl: str, now: datetime, previousDays: int, reque
     count = 1
 
     url = initUrl
+    selected_headers = REQUEST_HEADERS_LIST[randint(0, len(REQUEST_HEADERS_LIST)-1)]
     async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers=REQUEST_HEADERS)
+        response = await client.get(url, headers=selected_headers)
         html = response.content
         bs = BeautifulSoup(html, 'html.parser')
         initList = bs.find('tr', {'class': 'ub-content us-post', 'data-type': ['icon_txt', 'icon_pic']})
@@ -113,11 +133,11 @@ async def firstListParsing(initUrl: str, now: datetime, previousDays: int, reque
                 crawler_log('해당하는 날짜의 게시글을 불러오지 못했습니다!', request_id)
                 return -1
 
-            await asyncio.sleep(0.1 * randint(1,4))
+            await asyncio.sleep(0.1 * randint(10,30))
 
             try:
                 url = 'https://gall.dcinside.com/' + url2 + '/?id={}&no={}&page=1'.format(gallId, dataNum)
-                response = await client.get(url, headers=REQUEST_HEADERS)
+                response = await client.get(url, headers=selected_headers)
                 response.raise_for_status()
                 html = response.content
             except httpx.HTTPStatusError as e:

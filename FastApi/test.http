@@ -1,9 +1,50 @@
-### 크롤링 요청 테스트
+### 미국주식 크롤링 요청 테스트
+POST http://crawler:8002/crawl
+Content-Type: application/json
+
+{
+    "url": "https://gall.dcinside.com/mgallery/board/lists/?id=stockus",
+    "days": 1,
+    "previous_days": 0
+}
+
+
+### 한국 주식 갤러리 크롤링 요청 테스트
+POST http://crawler:8002/crawl
+Content-Type: application/json
+
+{
+    "url": "https://gall.dcinside.com/mgallery/board/lists/?id=krstock",
+    "days": 1,
+    "previous_days": 0
+}
+
+### 비트코인 갤러리 크롤링 요청 테스트
+POST http://crawler:8002/crawl
+Content-Type: application/json
+
+{
+    "url": "https://gall.dcinside.com/board/lists/?id=bitcoins_new1",
+    "days": 1,
+    "previous_days": 0
+}
+
+### 블루아카이브 갤러리 크롤링 요청 테스트
 POST http://crawler:8002/crawl
 Content-Type: application/json
 
 {
     "url": "https://gall.dcinside.com/mgallery/board/lists?id=projectmx",
     "days": 1,
-    "previous_days": 10
+    "previous_days": 0
+}
+
+### 해외주식 갤러리 크롤링 요청 테스트
+POST http://crawler:8002/crawl
+Content-Type: application/json
+
+{
+    "url": "https://gall.dcinside.com/mgallery/board/lists/?id=tenbagger",
+    "days": 1,
+    "previous_days": 0
 }

@@ -8,7 +8,10 @@
     "ghcr.io/devcontainers/features/common-utils:1": {
       "configureZshAsDefaultShell": true
     },
-    "ghcr.io/devcontainers/features/git:1": "latest"
+    "ghcr.io/devcontainers/features/git:1": "latest",
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+        "version": "latest" //docker 설치
+    }
   },
   "customizations": {
     "vscode": {
@@ -25,6 +28,7 @@
         "tamasfe.even-better-toml",   // TOML 설정 파일 지원
         "GitHub.copilot-chat",
         "continue.continue"           // Continue 확장 자동 설치
+        
       ]
     }
   },

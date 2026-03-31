@@ -1,5 +1,5 @@
 import asyncio
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 import uuid
 import os
@@ -12,6 +12,9 @@ from Crawling import startCrawler
 from crud_crawling import export_to_txt, delete_whitespace_word
 
 app = FastAPI(title= 'inside-viral Crawler Service')
+
+MAX_CONCURRENT_TASKS = 5
+active_tasks = 0
 
 class CrawlerRequest(BaseModel):
     url: str
@@ -53,6 +56,8 @@ async def send_callback(
 
 
 async def task_crawl_and_save(url: str, days: int, previousDays: int, request_id: str, callback_url: str | None = None):
+    global active_tasks
+    active_tasks += 1
     try:
         models.Base.metadata.create_all(bind=engine)
         print(f'(Crawler)[{request_id}] 크롤링을 시작합니다.')
@@ -66,15 +71,25 @@ async def task_crawl_and_save(url: str, days: int, previousDays: int, request_id
     except Exception as exc:
         print(f'(Crawler)[{request_id}] 크롤링 실패: {exc}')
         await send_callback(callback_url, request_id, 'failed', str(exc))
+    finally:
+        active_tasks -= 1
+        print(f"(Crawler)[{request_id}] 작업 종료. 현재 활성 작업 수: {active_tasks}/{MAX_CONCURRENT_TASKS}")
 
 
 @app.get('/')
 def health_check():
-    return {'message': 'Crawler service is running'}
+    return {'message': 'Crawler service is running', 'active_tasks': active_tasks, 'max_tasks': MAX_CONCURRENT_TASKS}
 
 
 @app.post('/crawl')
 async def request_crawl(payload: CrawlerRequest):
+    global active_tasks
+    if active_tasks >= MAX_CONCURRENT_TASKS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many concurrent tasks. Currently {active_tasks}/{MAX_CONCURRENT_TASKS} tasks running.",
+        )
+
     request_id = payload.request_id or str(uuid.uuid4())
     if payload.days < 1:
         raise HTTPException(status_code=400, detail='days must be >= 1')
