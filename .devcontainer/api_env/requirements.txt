@@ -5,4 +5,7 @@ httpx              # 다른 컨테이너에 비동기 요청을 위한 라이브
 sqlalchemy         # DB 연동 (기존 DB 매니저 활용)
 psycopg2-binary    # PostgreSQL 드라이버
 pydantic           # 데이터 모델 정의
+
+apscheduler        # 스케줄링 라이브러리
+
 #sqlmodel           # fastapi 연동

@@ -6,6 +6,7 @@ import os
 import uuid
 import httpx
 from pydantic import ValidationError
+from uuid import UUID
 
 from schemas import CrawlRelayRequest, CrawlerCallbackPayload, RequestLogUpsert
 from api_crud import api_create_request_log, api_get_request_log, api_update_request_log
@@ -40,9 +41,27 @@ async def notify_user_or_admin(request_id: str, status: str, error_message: Opti
 def read_root():
     return {"message": "Welcome to InsideViral API Server"}
 
+@app.get("/crawl/healthcheck")
+async def health_check():
+    endpoint = os.getenv("CRAWLER_URL") + "healthcheck" if os.getenv("CRAWLER_URL") else None
+    if not endpoint:       
+        raise HTTPException(status_code=500, detail="CRAWLER_URL is not configured")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(endpoint)
+            response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text if exc.response is not None else "crawler error"
+        raise HTTPException(status_code=502, detail=f"crawler error: {detail}")
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=503, detail=f"crawler unavailable: {exc}")
+    return {
+        "message": "crawler healthcheck ok",
+        "crawler_response": response.json(),
+    }
 
 @app.get("/crawl/{request_id}")
-def get_crawl_status(request_id: str):
+def get_crawl_status(request_id: UUID):
     db = SessionLocal()
     try:
         request_log = api_get_request_log(db, request_id)
@@ -192,5 +211,62 @@ async def request_api_crawling(payload: CrawlRelayRequest):
         }
     finally:
         db.close()
-     
-    
+
+# POST https://api:8000/crawl/cancel/
+@app.post("/crawl/cancel/{request_id}")
+async def cancel_api_crawling(request_id: str):
+    """크롤링 요청을 강제 종료합니다."""
+    crawler_url = os.getenv("CRAWLER_URL")
+    if not crawler_url:
+        raise HTTPException(status_code=500, detail="CRAWLER_URL is not configured")
+
+    db = SessionLocal()
+    try:
+        # 요청 로그 확인
+        request_log = api_get_request_log(db, request_id)
+        if request_log is None:
+            raise HTTPException(status_code=404, detail="request_id not found")
+
+        # 이미 종료되었거나 취소 중인 작업인지 확인
+        if request_log.status in ["succeeded", "failed", "cancelled", "dispatch_failed", "cancelling"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot cancel request with status '{request_log.status}'. Only running or pending requests can be cancelled."
+            )
+
+        # 크롤러 서버에 취소 요청
+        endpoint = crawler_url.rstrip("/") + f"/cancel/{request_id}"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(endpoint)
+                response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            detail = exc.response.text if exc.response is not None else "crawler error"
+            raise HTTPException(status_code=502, detail=f"crawler error: {detail}")
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=503, detail=f"crawler unavailable: {exc}")
+
+        # DB 상태를 'cancelling'으로 업데이트
+        cancel_log = RequestLogUpsert(
+            request_id=request_id,
+            gall_main_url=request_log.gall_main_url,
+            days=request_log.days,
+            days_ago=request_log.days_ago,
+            status="cancelling",
+            error_message=None,
+            saved_rows=request_log.saved_rows,
+            finished_at=None,
+        )
+        api_update_request_log(db, request_id, cancel_log)
+        print(f"[API] request_id={request_id} cancellation requested")
+
+        return {
+            "message": "crawl request cancellation requested",
+            "request_id": request_id,
+            "status": "cancelling"
+        }
+    finally:
+        db.close()
+
+
+
