@@ -1,31 +1,18 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from typing import Optional
 from datetime import datetime, timezone
 
 import os
 import uuid
 import httpx
+from pydantic import ValidationError
 
+from schemas import CrawlRelayRequest, CrawlerCallbackPayload, RequestLogUpsert
+from api_crud import api_create_request_log, api_get_request_log, api_update_request_log
+from DB_manager.database import SessionLocal, engine
+from DB_manager import models
 
 app = FastAPI(title="InsideViral API")
-
-# NOTE: demo용 메모리 저장소. 운영에서는 Redis/DB로 교체하세요.
-crawl_requests: dict[str, dict] = {}
-
-
-class CrawlRelayRequest(BaseModel):
-    gall_main_url: str = Field(..., description="dcinside gallery list url")
-    days: int = Field(1, ge=1, description="collect target days")
-    days_ago: int = Field(0, ge=0, description="start offset days ago")
-
-
-class CrawlerCallbackPayload(BaseModel):
-    request_id: str
-    status: Literal["succeeded", "failed"]
-    error_message: Optional[str] = None
-    finished_at: Optional[str] = None
-    saved_rows: Optional[int] = None
 
 
 async def notify_user_or_admin(request_id: str, status: str, error_message: Optional[str] = None, saved_rows: Optional[int] = None):
@@ -56,26 +43,53 @@ def read_root():
 
 @app.get("/crawl/{request_id}")
 def get_crawl_status(request_id: str):
-    request_data = crawl_requests.get(request_id)
-    if request_data is None:
-        raise HTTPException(status_code=404, detail="request_id not found")
-    return request_data
+    db = SessionLocal()
+    try:
+        request_log = api_get_request_log(db, request_id)
+        if request_log is None:
+            raise HTTPException(status_code=404, detail="request_id not found")
+        return {
+            "request_id": request_log.request_id,
+            "status": request_log.status,
+            "gall_main_url": request_log.gall_main_url,
+            "days": request_log.days,
+            "days_ago": request_log.days_ago,
+            "created_at": request_log.created_at.isoformat(),
+            "finished_at": request_log.finished_at.isoformat() if request_log.finished_at else None,
+            "error_message": request_log.error_message,
+            "saved_rows": request_log.saved_rows,
+        }
+    finally:
+        db.close()
 
 
 @app.post("/crawl/callback")
 async def crawl_callback(payload: CrawlerCallbackPayload):
-    request_data = crawl_requests.get(payload.request_id)
-    if request_data is None:
-        raise HTTPException(status_code=404, detail="request_id not found")
+    db = SessionLocal()
+    try:
+        # DB에서 기존 요청 로그 조회
+        existing_log = api_get_request_log(db, payload.request_id)
+        if existing_log is None:
+            raise HTTPException(status_code=404, detail="request_id not found")
 
-    finished_at = payload.finished_at or datetime.now(timezone.utc).isoformat()
-    request_data["status"] = payload.status
-    request_data["error_message"] = payload.error_message
-    request_data["finished_at"] = finished_at
-    request_data["saved_rows"] = payload.saved_rows
-
-    await notify_user_or_admin(payload.request_id, payload.status, payload.error_message, payload.saved_rows)
-    return {"message": "callback accepted", "request_id": payload.request_id}
+        # 콜백 데이터로 로그 업데이트
+        finished_at = payload.finished_at or datetime.now(timezone.utc)
+        updated_log = RequestLogUpsert(
+            request_id=payload.request_id,
+            gall_main_url=existing_log.gall_main_url,
+            days=existing_log.days,
+            days_ago=existing_log.days_ago,
+            status=payload.status,
+            error_message=payload.error_message,
+            saved_rows=payload.saved_rows or 0,
+            created_at=existing_log.created_at,
+            finished_at=finished_at,
+        )
+        api_update_request_log(db, payload.request_id, updated_log)
+        await notify_user_or_admin(payload.request_id, payload.status, payload.error_message, payload.saved_rows)
+        return {"message": "callback accepted", "request_id": payload.request_id}
+    finally:
+        db.close()
 
 
 @app.post("/crawl")
@@ -84,48 +98,99 @@ async def request_api_crawling(payload: CrawlRelayRequest):
     if not crawler_url:
         raise HTTPException(status_code=500, detail="CRAWLER_URL is not configured")
 
-    request_id = str(uuid.uuid4())
-    body = {
-        "url": payload.gall_main_url,
-        "days": payload.days,
-        "previous_days": payload.days_ago,
-        "request_id": request_id,
-        "callback_url": os.getenv("API_CALLBACK_URL"),
-    }
-
-    crawl_requests[request_id] = {
-        "request_id": request_id,
-        "status": "pending_dispatch",
-        "gall_main_url": payload.gall_main_url,
-        "days": payload.days,
-        "days_ago": payload.days_ago,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "finished_at": None,
-        "error_message": None,
-        "saved_rows": 0,
-    }
-
-    endpoint = crawler_url.rstrip("/") + "/crawl"
+    db = SessionLocal()
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(endpoint, json=body)
-            response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        detail = exc.response.text if exc.response is not None else "crawler http error"
-        raise HTTPException(status_code=502, detail=f"crawler rejected request: {detail}")
-    except httpx.RequestError as exc:
-        crawl_requests[request_id]["status"] = "dispatch_failed"
-        crawl_requests[request_id]["error_message"] = str(exc)
-        raise HTTPException(status_code=503, detail=f"crawler unavailable: {exc}")
+        request_id = str(uuid.uuid4())
+        body = {
+            "gall_main_url": payload.gall_main_url,
+            "days": payload.days,
+            "days_ago": payload.days_ago,
+            "request_id": request_id,
+            "callback_url": os.getenv("API_CALLBACK_URL"),
+        }
 
-    data = response.json()
-    crawl_requests[request_id]["status"] = data.get("status", "queued")
-    print(f"Crawl request({request_id}) successfully accepted by crawler")
-    return {
-        "message": "crawl request accepted",
-        "api_request_id": request_id,
-        "crawler_request_id": data.get("request_id", request_id),
-        "status": data.get("status", "queued")
-    }
+        # 초기 요청 로그 DB에 생성
+        print(f"[API] request_id={request_id} request log 생성 시도")
+        try:
+            initial_log = RequestLogUpsert(
+                request_id=request_id,
+                gall_main_url=payload.gall_main_url,
+                days=payload.days,
+                days_ago=payload.days_ago,
+                status="pending",
+                error_message=None,
+                saved_rows=0,
+                finished_at=None,
+            )
+        except ValidationError as exc:
+            print(f"[API] request_id={request_id} RequestLogUpsert 검증 실패: {exc}")
+            raise HTTPException(
+                status_code=500,
+                detail={"message": "request log schema validation failed", "errors": exc.errors()},
+            )
+
+        models.Base.metadata.create_all(bind=engine)
+        create_result = api_create_request_log(db, initial_log)
+        if create_result != 0:
+            print(f"[API] request_id={request_id} request log 저장 실패로 요청 중단")
+            raise HTTPException(status_code=500, detail="failed to create request log")
+        endpoint = crawler_url.rstrip("/") + "/crawl"
+
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(endpoint, json=body)
+                response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            detail = exc.response.text if exc.response is not None else "crawler http error"
+            # 실패 상태를 DB에 업데이트
+            failed_log = RequestLogUpsert(
+                request_id=request_id,
+                gall_main_url=payload.gall_main_url,
+                days=payload.days,
+                days_ago=payload.days_ago,
+                status="dispatch_failed",
+                error_message=str(exc),
+                saved_rows=0,
+                finished_at=datetime.now(timezone.utc),
+            )
+            api_update_request_log(db, request_id, failed_log)
+            raise HTTPException(status_code=502, detail=f"crawler rejected request: {detail}")
+        except httpx.RequestError as exc:
+            # 요청 실패 상태를 DB에 업데이트
+            failed_log = RequestLogUpsert(
+                request_id=request_id,
+                gall_main_url=payload.gall_main_url,
+                days=payload.days,
+                days_ago=payload.days_ago,
+                status="dispatch_failed",
+                error_message=str(exc),
+                saved_rows=0,
+                finished_at=datetime.now(timezone.utc),
+            )
+            api_update_request_log(db, request_id, failed_log)
+            raise HTTPException(status_code=503, detail=f"crawler unavailable: {exc}")
+
+        # 크롤러 응답으로 상태 업데이트
+        data = response.json()
+        status_log = RequestLogUpsert(
+            request_id=request_id,
+            gall_main_url=payload.gall_main_url,
+            days=payload.days,
+            days_ago=payload.days_ago,
+            status=data.get("status", "running"),
+            error_message=None,
+            saved_rows=0,
+            finished_at=None,
+        )
+        api_update_request_log(db, request_id, status_log)
+        print(f"Crawl request({request_id}) successfully accepted by crawler")
+        return {
+            "message": "crawl request accepted",
+            "request_id": request_id,
+            "status": data.get("status", "running"),
+        }
+    finally:
+        db.close()
      
     

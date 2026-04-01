@@ -1,28 +1,37 @@
 import asyncio
+from typing import Literal, Optional
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 import uuid
 import os
 from datetime import datetime, timezone
 import httpx
+import importlib
 
 from DB_manager.database import engine, SessionLocal
 from DB_manager import models
 from Crawling import startCrawler
 from crud_crawling import export_to_txt, delete_whitespace_word
 
+try:
+    from crawling import runtime_state
+except ImportError:
+    runtime_state = importlib.import_module('runtime_state')
+
 app = FastAPI(title= 'inside-viral Crawler Service')
 
-MAX_CONCURRENT_TASKS = 5
-active_tasks = 0
-
 class CrawlerRequest(BaseModel):
-    url: str
+    gall_main_url: str
     days: int
-    previous_days: int = 0
+    days_ago: int = 0
     request_id: str | None = None
     callback_url: str | None = None
-
+class CrawlerCallbackPayload(BaseModel):
+    request_id: str
+    status: Literal["succeeded", "failed"]
+    error_message: Optional[str] = None
+    finished_at: Optional[datetime] = None
+    saved_rows: Optional[int] = None
 
 async def send_callback(
     callback_url: str | None,
@@ -56,8 +65,7 @@ async def send_callback(
 
 
 async def task_crawl_and_save(url: str, days: int, previousDays: int, request_id: str, callback_url: str | None = None):
-    global active_tasks
-    active_tasks += 1
+    runtime_state.active_tasks += 1
     try:
         models.Base.metadata.create_all(bind=engine)
         print(f'(Crawler)[{request_id}] 크롤링을 시작합니다.')
@@ -67,48 +75,42 @@ async def task_crawl_and_save(url: str, days: int, previousDays: int, request_id
         if isError == -1:
             await send_callback(callback_url, request_id, 'failed', 'Crawling failed', saved_rows)
         else:
-            await send_callback(callback_url, request_id, 'succeeded', None, saved_rows)
+            await send_callback(callback_url, request_id, 'succeeded', 'Crawling succeeded', saved_rows)
     except Exception as exc:
         print(f'(Crawler)[{request_id}] 크롤링 실패: {exc}')
         await send_callback(callback_url, request_id, 'failed', str(exc))
     finally:
-        active_tasks -= 1
-        print(f"(Crawler)[{request_id}] 작업 종료. 현재 활성 작업 수: {active_tasks}/{MAX_CONCURRENT_TASKS}")
+        runtime_state.active_tasks -= 1
+        print(f"(Crawler)[{request_id}] 작업 종료. 현재 활성 작업 수: {runtime_state.active_tasks}/{runtime_state.MAX_CONCURRENT_TASKS}")
 
 
 @app.get('/')
 def health_check():
-    return {'message': 'Crawler service is running', 'active_tasks': active_tasks, 'max_tasks': MAX_CONCURRENT_TASKS}
+    return {'message': f'Crawler service is running({runtime_state.active_tasks}/{runtime_state.MAX_CONCURRENT_TASKS})'}
 
 
 @app.post('/crawl')
 async def request_crawl(payload: CrawlerRequest):
-    global active_tasks
-    if active_tasks >= MAX_CONCURRENT_TASKS:
+    if runtime_state.active_tasks >= runtime_state.MAX_CONCURRENT_TASKS:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Too many concurrent tasks. Currently {active_tasks}/{MAX_CONCURRENT_TASKS} tasks running.",
-        )
-
-    request_id = payload.request_id or str(uuid.uuid4())
-    if payload.days < 1:
-        raise HTTPException(status_code=400, detail='days must be >= 1')
-    if payload.previous_days < 0:
-        raise HTTPException(status_code=400, detail='previous_days must be >= 0')
+            detail={'message': f"Too many concurrent tasks. Currently {runtime_state.active_tasks}/{runtime_state.MAX_CONCURRENT_TASKS} tasks running.",
+                    'request_id': payload.request_id, 'status': 'failed'}
+           )
 
     asyncio.create_task(
         task_crawl_and_save(
-            payload.url,
+            payload.gall_main_url,
             payload.days,
-            payload.previous_days,
-            request_id,
+            payload.days_ago,
+            payload.request_id,
             payload.callback_url,
         )
     )
     return {
-        'message': 'crawl task queued',
-        'request_id': request_id,
-        'status': 'queued'
+        'message': f'crawl task running {runtime_state.active_tasks}/{runtime_state.MAX_CONCURRENT_TASKS}',
+        'request_id': payload.request_id,
+        'status': 'running'
     }
 
 

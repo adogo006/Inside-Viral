@@ -17,7 +17,6 @@ class Word(Base):
     wordContent = Column(TEXT)
     sentiment = Column(Float, default = 0.0)
     state = Column(SQLEnum(ProcessState), default = ProcessState.PENDING) # pending 기본값, nlp 처리 후 completed 로 변경
-
     __table_args__ = (
         UniqueConstraint('gallId', 'date', 'wordContent', name = 'id'),
     )
@@ -31,6 +30,19 @@ class WeightInWord(Base):
     __table_args__ = (
         UniqueConstraint('word', name = 'word'),
     )
+
+class RequestLog(Base):
+    __tablename__ = 'request_logs'
+    id = Column(Integer, primary_key = True, index = True)
+    request_id = Column(String(50), unique=True)
+    gall_main_url = Column(String(255))
+    days = Column(Integer)
+    days_ago = Column(Integer)
+    status = Column(String(20))
+    error_message = Column(TEXT, nullable=True)
+    saved_rows = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    finished_at = Column(DateTime(timezone=True), nullable=True)
 
 
     

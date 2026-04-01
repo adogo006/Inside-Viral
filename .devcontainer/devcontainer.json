@@ -10,7 +10,8 @@
     },
     "ghcr.io/devcontainers/features/git:1": "latest",
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
-        "version": "latest" //docker 설치
+        "version": "latest", //docker 설치
+        "moby": false
     }
   },
   "customizations": {
