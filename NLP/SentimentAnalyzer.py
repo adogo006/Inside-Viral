@@ -68,6 +68,3 @@ def main():
         status = "긍정" if result['final_score'] > 0 else "부정"
         print(f"결론: 이 문장은 최종적으로 [{status}]로 판단됩니다.")
         print("-" * 50)
-
-if __name__ == "__main__":
-    main()

@@ -9,6 +9,3 @@ def download():
     SentenceTransformer(sbert_model);
 
     print('모든 모델을 다운로드 했습니다!')
-
-if __name__ == '__main__':
-    download() 
