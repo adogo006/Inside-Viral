@@ -2,9 +2,26 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import DateTime
 from datetime import datetime, timedelta
-import models
+import DB_manager.models as models
 
-# 1. CREATE 기능
+def get_sentences(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Word).offset(skip).limit(limit).all()
+
+def get_weights(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.WeightInWord).all()
+
+def update_weights(db: Session, weights: dict):
+    for word, weight in weights.items():
+        existing = db.query(models.WeightInWord).filter(models.WeightInWord.word == word).first()
+        if existing:
+            # 학습할 때마다 weight를 갱신해주야 하는데, 적용 방법의 대한 생각 필요
+            existing.weight = weight
+        else:
+            db.add(models.WeightInWord(word=word, weight=weight))
+    db.commit()
+    
+
+'''
 def create_word_entry(db: Session, gall_id: str, up_date: DateTime, word_content: str, sentiment_score: float = 0.0):
     db_word = models.Word(
         gallId = gall_id,
@@ -16,19 +33,6 @@ def create_word_entry(db: Session, gall_id: str, up_date: DateTime, word_content
     db.commit()
     db.refresh(db_word)
     return db_word
-
-def get_words(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Word).offset(skip).limit(limit).all()
-
-def update_weights(db: Session, weights: dict):
-    for word, weight in weights.items():
-        existing = db.query(models.WeightInWord).filter(models.WeightInWord.word == word).first()
-        if existing:
-            # 학습할 때마다 weight를 갱신해주야 하는데, 적용 방법의 대한 생각 필요
-            existing.weight = weight
-        else:
-            db.add(models.WeightInWord(word=word, weight=weight))
-    db.commit()
 
 def cleanup_duplicate_words(db: Session):
     # 중복 데이터 삭제 함수(gallId, date, wordContent 같을 시)
@@ -56,4 +60,4 @@ def cleanup_duplicate_words(db: Session):
         db.rollback()
         print(f"클린업 중 오류 발생: {e}")
         return 
-    
+'''

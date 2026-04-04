@@ -4,8 +4,7 @@ from sqlalchemy.orm import Session
 
 from DB_manager.database import engine, SessionLocal
 from DB_manager import models
-import crud_NLP
-from KeywordExtractor import main
+import crud_NLP, KeywordExtractor, SentimentAnalyzer
 
 app = FastAPI(title= 'inside-viral NLP Service')
 
@@ -13,17 +12,21 @@ def extract_keyword():
     db = SessionLocal()
     # try/finally 문을 사용해야 에러 발생시에도 session을 닫을 수 있음
     try:
-        sentences = crud_NLP.get_words(db)
-        weights = main(sentences)
+        sentences = crud_NLP.get_sentences(db)
+        weights = KeywordExtractor.main(sentences)
         crud_NLP.update_weights(db, weights)
     finally:
         db.close()
+    
+    # 임시    
+    assign_sentiment()
 
 def assign_sentiment():
     db = SessionLocal()
     try:
-        # TODO: SentimentAnalyzer 연결
-        pass
+        sentences = crud_NLP.get_sentences(db)
+        weights = crud_NLP.get_weights(db)
+        SentimentAnalyzer.main(sentences, weights)
     finally:
         db.close()
     
