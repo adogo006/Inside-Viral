@@ -1,7 +1,7 @@
 {
   "name": "InsideViral-Dev-Container",
   "dockerComposeFile": "./docker-compose.yml",
-  "service": "api",
+  "service": "nlp",
   "runServices": ["db", "crawler", "api", "nlp"],
   "workspaceFolder": "/workspaces",
   "features": {
@@ -9,6 +9,9 @@
       "configureZshAsDefaultShell": true
     },
     "ghcr.io/devcontainers/features/git:1": "latest",
+    "ghcr.io/devcontainers/features/node:1": {
+        "version": "latest"
+    },
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
         "version": "latest", //docker 설치
         "moby": false
