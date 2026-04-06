@@ -48,3 +48,9 @@ Content-Type: application/json
     "days": 1,
     "days_ago": 100
 }
+
+### 크롤링 요청 취소
+POST http://api:8000/crawl/cancel/56dd4923-ef11-4f61-821a-012261696455
+
+### 크롤링 상태 조회
+GET http://api:8000/crawl/healthcheck

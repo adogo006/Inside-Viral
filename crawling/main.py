@@ -20,6 +20,9 @@ except ImportError:
 
 app = FastAPI(title= 'inside-viral Crawler Service')
 
+# request_id -> Task 매핑을 위한 dict
+active_crawl_tasks: dict[str, asyncio.Task] = {}
+
 class CrawlerRequest(BaseModel):
     gall_main_url: str
     days: int
@@ -76,17 +79,50 @@ async def task_crawl_and_save(url: str, days: int, previousDays: int, request_id
             await send_callback(callback_url, request_id, 'failed', 'Crawling failed', saved_rows)
         else:
             await send_callback(callback_url, request_id, 'succeeded', 'Crawling succeeded', saved_rows)
+    except asyncio.CancelledError:
+        print(f'(Crawler)[{request_id}] 크롤링이 사용자에 의해 강제 종료되었습니다.')
+        await send_callback(callback_url, request_id, 'cancelled', 'Crawling cancelled by user')
     except Exception as exc:
         print(f'(Crawler)[{request_id}] 크롤링 실패: {exc}')
         await send_callback(callback_url, request_id, 'failed', str(exc))
     finally:
         runtime_state.active_tasks -= 1
+        active_crawl_tasks.pop(request_id, None)
         print(f"(Crawler)[{request_id}] 작업 종료. 현재 활성 작업 수: {runtime_state.active_tasks}/{runtime_state.MAX_CONCURRENT_TASKS}")
 
 
-@app.get('/')
+@app.get('/healthcheck')
 def health_check():
-    return {'message': f'Crawler service is running({runtime_state.active_tasks}/{runtime_state.MAX_CONCURRENT_TASKS})'}
+    task_list ="\n".join(active_crawl_tasks.keys())
+
+    return {'message': (f'Crawler service is running({runtime_state.active_tasks}/{runtime_state.MAX_CONCURRENT_TASKS})'
+                         '현재 활성 프로세스 상태'
+                        f'{task_list}')}
+
+
+@app.post('/cancel/{request_id}')
+async def cancel_crawl(request_id: str):
+    """특정 request_id의 크롤링 작업을 강제 종료합니다."""
+    if request_id not in active_crawl_tasks:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={'message': f'request_id {request_id} not found', 'request_id': request_id}
+        )
+    
+    task = active_crawl_tasks[request_id]
+    if task.done():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={'message': f'request_id {request_id} is already finished', 'request_id': request_id}
+        )
+    
+    task.cancel()
+    print(f'(Crawler)[{request_id}] 취소 신호 전송됨.')
+    return {
+        'message': 'crawl task cancellation requested',
+        'request_id': request_id,
+        'status': 'cancelling'
+    }
 
 
 @app.post('/crawl')
@@ -98,7 +134,7 @@ async def request_crawl(payload: CrawlerRequest):
                     'request_id': payload.request_id, 'status': 'failed'}
            )
 
-    asyncio.create_task(
+    task = asyncio.create_task(
         task_crawl_and_save(
             payload.gall_main_url,
             payload.days,
@@ -107,6 +143,7 @@ async def request_crawl(payload: CrawlerRequest):
             payload.callback_url,
         )
     )
+    active_crawl_tasks[payload.request_id] = task
     return {
         'message': f'crawl task running {runtime_state.active_tasks}/{runtime_state.MAX_CONCURRENT_TASKS}',
         'request_id': payload.request_id,
