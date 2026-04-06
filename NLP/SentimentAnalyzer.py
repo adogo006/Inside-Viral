@@ -8,9 +8,14 @@ class SentimentAnalyzer:
             model="jaehyeong/koelectra-base-v3-generalized-sentiment-analysis"
         )
 
-    def analyze(self, sentences, weights):
+    def analyze(self, sentence, weights):
+        if hasattr(sentence, "wordContent"):
+            sentence_text = sentence.wordContent
+        else:
+            sentence_text = str(sentence)
+
         # (1) 모델의 기본 예측 (Base Score)
-        res = self.classifier(sentences, truncation=True)[0]
+        res = self.classifier(sentence_text, truncation=True, max_length=512)[0]
         primary_score = res['score'] if res['label'] == '1' else -res['score']
         
         # (2) 가중치 사전을 이용한 점수 보정
@@ -19,7 +24,7 @@ class SentimentAnalyzer:
 
         # 문장에 가중치 사전의 단어가 포함되어 있는지 확인
         for word, weight in weights.items():
-            if word in sentences:
+            if word in sentence_text:
                 adjustment += weight
                 found_words.append(f"{word}({weight})")
 
@@ -27,7 +32,7 @@ class SentimentAnalyzer:
         final_score = primary_score + adjustment
         
         return {
-            "text": sentences,
+            "text": sentence_text,
             "primary_score": round(primary_score, 4),
             "adjustment": round(adjustment, 4),
             "final_score": round(final_score, 4),

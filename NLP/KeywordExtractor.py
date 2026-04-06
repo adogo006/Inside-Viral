@@ -39,7 +39,7 @@ def calculate_weights(sentences, sentence_scores, all_embeddings, dataset_centro
     }
     
     print(f"Filtering {len(filtered_candidates)} words")
-    keyword_weights = {}
+    keyword_weights = []
     for word, score in filtered_candidates.items():
         # 단어에 모델이 낸 점수가 극단적(0.95 이상)이면 알고있는 단어
         test_res = classifier(word, truncation=True)[0]
@@ -67,7 +67,7 @@ def calculate_weights(sentences, sentence_scores, all_embeddings, dataset_centro
         # 최종 가중치 공식
         weight = (sentiment_factor * score.cohesion_forward) * (semantic_sim * novelty_bonus)
 
-        keyword_weights[word] = round(weight, 4)
+        keyword_weights.append({"word": word, "weight": float(round(weight, 4))})
         print(f"Enroll [{word}, {weight}]")
 
     return keyword_weights
@@ -76,7 +76,7 @@ def main(sentences):
     print("Loading data..")
     if not sentences:
         print("[!] Fail to load data")
-        return
+        return []
     print("Complete")
     
     print("Loading models..")
