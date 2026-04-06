@@ -17,16 +17,14 @@ def extract_keyword():
         crud_NLP.update_weights(db, weights)
     finally:
         db.close()
-    
-    # 임시    
-    assign_sentiment()
 
 def assign_sentiment():
     db = SessionLocal()
     try:
         sentences = crud_NLP.get_sentences(db)
         weights = crud_NLP.get_weights(db)
-        SentimentAnalyzer.main(sentences, weights)
+        results = SentimentAnalyzer.main(sentences, weights)
+        crud_NLP.update_sentiment(db, results)
     finally:
         db.close()
     

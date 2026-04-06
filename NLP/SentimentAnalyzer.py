@@ -36,16 +36,20 @@ class SentimentAnalyzer:
 
 def main(sentences, weights):
     analyzer = SentimentAnalyzer()
+    results = []
 
-    print("\n" + "="*50)
     for sent in sentences:
         result = analyzer.analyze(sent, weights)
         print(f"Sentence: {result['text']}")
         print(f"Primary score: {result['primary_score']}")
         print(f"Adjustment: {result['adjustment']} (Applied keywords: {result['applied_keywords']})")
         print(f"Final score: {result['final_score']}")
-        
-        # 결과 해석
-        status = "Positive" if result['final_score'] > 0 else "Negative"
-        print(f"[{status}]")
         print("-" * 50)
+
+        results.append({
+            "word_id": sent.id,
+            "word_content": sent.wordContent,
+            "final_score": result['final_score']
+        })
+
+    return results

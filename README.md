@@ -10,14 +10,17 @@ download_models.py : download NLP models
 when container open, run download_models.py
 main.py get api
 call extract_keyword()
-	open session to give session as parameter
-	call crud_NLP.py get_words(Session)
-		get data on DB as list
-		call KeywordExtractor.py main(list)
-
+	open session
+		get sentences on DB
+		calculate weights
+		update weight table
 	close session
 call assign_sentiment()
-	open session to give session as parameter
+	open session
+		get sentences on DB
+		get saved weights on DB
+		analyze final sentiment of each sentences
+	close session
 
 ---
 

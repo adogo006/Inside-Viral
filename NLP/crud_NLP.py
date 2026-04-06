@@ -19,6 +19,14 @@ def update_weights(db: Session, weights: dict):
         else:
             db.add(models.WeightInWord(word=word, weight=weight))
     db.commit()
+
+def update_sentiment(db: Session, results: list):
+    for item in results:
+        word = db.query(models.Word).filter(models.Word.id == item["word_id"]).first()
+        if word:
+            word.sentiment = item["final_score"]
+            word.state = models.ProcessState.COMPLETED
+    db.commit()
     
 
 '''
