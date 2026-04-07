@@ -1,4 +1,9 @@
 from transformers import pipeline
+import torch
+import time
+import re
+
+torch.set_num_threads(2)
 
 class SentimentAnalyzer:
     def __init__(self):
@@ -8,44 +13,58 @@ class SentimentAnalyzer:
             model="jaehyeong/koelectra-base-v3-generalized-sentiment-analysis"
         )
 
-    def analyze(self, sentence, weights):
-        if hasattr(sentence, "wordContent"):
-            sentence_text = sentence.wordContent
-        else:
-            sentence_text = str(sentence)
+    def analyze_batch(self, sentences, weights, batch_size=32):
+        results = []
+        for i in range(0, len(sentences), batch_size):
+            chunk = sentences[i:i + batch_size]
+            texts = []
+            for sent in chunk:
+                if hasattr(sent, "wordContent"):
+                    texts.append(sent.wordContent)
+                else:
+                    texts.append(str(sent))
 
-        # (1) 모델의 기본 예측 (Base Score)
-        res = self.classifier(sentence_text, truncation=True, max_length=512)[0]
-        primary_score = res['score'] if res['label'] == '1' else -res['score']
-        
-        # (2) 가중치 사전을 이용한 점수 보정
-        adjustment = 0
-        found_words = []
+            # 배치로 모델 호출
+            batch_results = self.classifier(texts, truncation=True, max_length=512)
 
-        # 문장에 가중치 사전의 단어가 포함되어 있는지 확인
-        for word, weight in weights.items():
-            if word in sentence_text:
-                adjustment += weight
-                found_words.append(f"{word}({weight})")
+            for j, res in enumerate(batch_results):
+                sentence_text = texts[j]
+                primary_score = res['score'] if res['label'] == '1' else -res['score']
 
-        # (3) 최종 점수 계산 (모델 점수 + 보정치)
-        final_score = primary_score + adjustment
-        
-        return {
-            "text": sentence_text,
-            "primary_score": round(primary_score, 4),
-            "adjustment": round(adjustment, 4),
-            "final_score": round(final_score, 4),
-            "applied_keywords": found_words
-        }
+                # 가중치 보정 (단어 경계 매칭)
+                adjustment = 0
+                found_words = []
+                for word, weight in weights.items():
+                    if re.search(r'\b' + re.escape(word) + r'\b', sentence_text):
+                        adjustment += weight
+                        found_words.append(f"{word}({weight})")
+
+                # 최종 sentiment 점수 계산
+                final_score = primary_score + adjustment
+
+                print(f"[{i + j + 1}/{len(sentences)}] {sentence_text[:30]}... -> {final_score:.4f}")
+
+                results.append({
+                    "text": sentence_text,
+                    "primary_score": round(primary_score, 4),
+                    "adjustment": round(adjustment, 4),
+                    "final_score": round(final_score, 4),
+                    "applied_keywords": found_words
+                })
+
+                time.sleep(0.05)
+
+        return results
 
 def main(sentences, weights):
     analyzer = SentimentAnalyzer()
+    batch_results = analyzer.analyze_batch(sentences, weights)
     results = []
 
-    for sent in sentences:
-        result = analyzer.analyze(sent, weights)
-        print(f"Sentence: {result['text']}")
+    print(f"Total {len(sentences)} sentences")
+    for idx, result in enumerate(batch_results):
+        sent = sentences[idx]
+        print(f"[{idx + 1}/{len(sentences)}] Sentence: {result['text']}")
         print(f"Primary score: {result['primary_score']}")
         print(f"Adjustment: {result['adjustment']} (Applied keywords: {result['applied_keywords']})")
         print(f"Final score: {result['final_score']}")
