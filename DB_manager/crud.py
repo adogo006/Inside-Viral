@@ -1,7 +1,8 @@
 #CREATE, READ, DELETE, 등 핵심 로직
 from sqlalchemy.orm import Session
-from sqlalchemy import DateTime
-from datetime import datetime, timedelta
+from sqlalchemy import DateTime, func, select
+from sqlalchemy.dialects.postgresql import insert
+from datetime import datetime, timedelta, timezone
 import models
 
 
@@ -39,32 +40,42 @@ def delete_word(db: Session, word_id: int):
         return True
     else:
         return False
-    
-# 5. 중복데이터 추가 함수
-def cleanup_duplicate_words(db: Session):
-    # 중복 데이터 삭제 함수(gallId, date, wordContent 같을 시)
-    query = text("""
-        DELETE FROM words
-        WHERE id IN (
-            SELECT id
-            FROM (
-                SELECT id,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY "gallId", "wordContent", "date" 
-                           ORDER BY id
-                       ) as row_num
-                FROM words
-            ) t
-            WHERE t.row_num > 1
-        );
-    """)
+
+def compute_average_sentiment(db: Session, gall_id: str, target_date: datetime, period: int = 1):
+    start_date = target_date.replace(hour=0, minute=0, second=0, microsecond=0).replace(tzinfo=timezone.utc)
+    current_date = start_date
+    next_date = start_date + timedelta(days=period)
+    average_sentiment = 0.0
+
     try:
-        result = db.execute(query)
+        while current_date < next_date:
+            day_end = current_date + timedelta(days=1)
+            stmt = select(func.avg(models.Word.sentiment)).where(
+                models.Word.gallId == gall_id,
+                models.Word.date >= current_date,
+                models.Word.date < day_end,
+            )
+            average_sentiment = db.execute(stmt).scalar_one_or_none()
+            if average_sentiment is None:
+                average_sentiment = 0.0
+
+            upsert_stmt = insert(models.AverageSentimentForOneDay).values(
+                gall_id=gall_id,
+                date=current_date,
+                average_sentiment=average_sentiment,
+            ).on_conflict_do_update(
+                index_elements=["gall_id", "date"],
+                set_={"average_sentiment": average_sentiment},
+            )
+            db.execute(upsert_stmt)
+
+            current_date += timedelta(days=1)
+
         db.commit()
-        print(f"클린업 완료: 총 {result.rowcount}개의 중복 행이 삭제되었습니다.")
-        return 
-    except Exception as e:
+        print(f"Complete compute average sentiment for gall_id={gall_id} from {start_date} to {next_date}")
+        return average_sentiment
+    except Exception as exc:
         db.rollback()
-        print(f"클린업 중 오류 발생: {e}")
-        return 
+        print(f"Failed compute average sentiment for gall_id={gall_id}: {exc!r}")
+        raise
     

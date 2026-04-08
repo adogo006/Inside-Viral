@@ -32,6 +32,7 @@ class WeightInWord(Base):
     id = Column(Integer, primary_key = True, index = True)
     word = Column(String(30))
     weight = Column(Float)
+    update_count = Column(Integer, default = 0)
 
     __table_args__ = (
         UniqueConstraint('word', name = 'word'),
@@ -50,5 +51,14 @@ class RequestLog(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     finished_at = Column(DateTime(timezone=True), nullable=True)
 
+class AverageSentimentForOneDay(Base):
+    __tablename__ = 'average_sentiments_for_one_day'
+    id = Column(Integer, primary_key = True, index = True)
+    gall_id = Column(String(50))
+    date = Column(DateTime(timezone=True))
+    average_sentiment = Column(Float)
 
+    __table_args__ = (
+        UniqueConstraint('gall_id', 'date', name = 'gall_id_date'),
+    )
     

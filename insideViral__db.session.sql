@@ -1,10 +1,9 @@
 
 -- @block tabble remover
-TRUNCATE TABLE words RESTART IDENTITY
 
-DROP TABLE words, weights
+DROP TABLE words, weights, request_logs
 ;
 
 -- @block column adder
-ALTER TABLE words ADD COLUMN state_edu processstate NOT NULL DEFAULT 'pending'
+ALTER TABLE words ADD COLUMN learning_state learningstate NOT NULL DEFAULT 'pending'
 ;
