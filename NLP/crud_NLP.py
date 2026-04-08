@@ -33,7 +33,8 @@ def update_weights(db: Session, weight_list: list[dict]):
     stmt = insert(models.WeightInWord).values(normalized_weight_list)
     upsert_stmt = stmt.on_conflict_do_update(
         index_elements=['word'],
-        set_={'weight': (models.WeightInWord.weight * 4 / 5) + (stmt.excluded.weight * 1 / 5)}
+        set_={'weight': (models.WeightInWord.weight * 4 / 5) + (stmt.excluded.weight * 1 / 5),
+              'update_count': models.WeightInWord.update_count + 1}
     )
 
     try:

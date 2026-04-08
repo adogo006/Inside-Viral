@@ -79,3 +79,19 @@ def compute_average_sentiment(db: Session, gall_id: str, target_date: datetime, 
         print(f"Failed compute average sentiment for gall_id={gall_id}: {exc!r}")
         raise
     
+def delete_low_priority_words(db: Session, threshold: int = 1000):
+    total_count = db.query(models.WeightInWord).count()
+    if total_count > threshold:
+        delete_count = total_count - threshold
+        select_stmt = (select(models.WeightInWord.id)
+                            .order_by(models.WeightInWord.update_count.asc()).limit(delete_count)
+        )
+        target_ids = db.execute(select_stmt).scalars().all()
+
+        if target_ids:
+            delete_stmt = (models.WeightInWord.__table__.delete().where(models.WeightInWord.id.in_(target_ids)))
+            db.execute(delete_stmt)
+            db.commit()
+            print(f"{delete_count} 개의 낮은 우선순위 단어 삭제 완료!")
+
+    db.commit()
