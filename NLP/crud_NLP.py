@@ -46,10 +46,9 @@ def update_weights(db: Session, weight_list: list[dict]):
         print(f"save_in_weights: 오류 발생: {e}")
         return -1
 
-def update_sentiment(db: Session, results: list, target_gall: str):
+def update_sentiment(db: Session, results: list):
     for item in results:
-        word = db.query(models.Word).filter(models.Word.id == item["word_id"])\
-        .filter(models.Word.gallId == target_gall).first()
+        word = db.query(models.Word).filter(models.Word.id == item["word_id"]).first()
         if word:
             word.sentiment = item["final_score"]
             word.state = models.ProcessState.COMPLETED
