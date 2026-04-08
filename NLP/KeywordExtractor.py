@@ -8,6 +8,9 @@ from transformers import pipeline
 from sentence_transformers import SentenceTransformer, util
 import torch
 import math, re
+import time
+
+torch.set_num_threads(2)
 
 def get_sentence_scores(sentences, classifier):
     scores = []
@@ -35,40 +38,59 @@ def calculate_weights(sentences, sentence_scores, all_embeddings, dataset_centro
         if re.search(r'[가-힣]', word) and
         score.leftside_frequency >= 5 and
         score.cohesion_forward >= 0.4 and
-        score.right_branching_entropy >= 0.5
+        score.right_branching_entropy >= 1.0
     }
-    
+
     print(f"Filtering {len(filtered_candidates)} words")
     keyword_weights = []
-    for word, score in filtered_candidates.items():
-        # 단어에 모델이 낸 점수가 극단적(0.95 이상)이면 알고있는 단어
-        test_res = classifier(word, truncation=True)[0]
-        model_confidence = test_res['score']
-        # 모델 확신도가 너무 높으면 배제
-        if model_confidence > 0.92:
-            print(f"Word [{word}] is excluded: Model has confidence")
-            continue
+    word_list = list(filtered_candidates.keys())
+    score_list = list(filtered_candidates.values())
 
-        # 해당 단어가 포함된 문장 인덱스 추출
-        indices = [i for i, s in enumerate(sentences) if word in s]
-        if not indices: continue
+    # 배치 처리 (32개씩)
+    for i in range(0, len(word_list), 32):
+        chunk_words = word_list[i:i + 32]
+        chunk_scores = score_list[i:i + 32]
 
-        # 감성 증폭 (지수함수)
-        avg_sent = sum(sentence_scores[i] for i in indices) / len(indices)
-        sentiment_factor = math.exp(abs(avg_sent) * 3.0) * (1 if avg_sent > 0 else -1)
+        # 배치로 모델 호출
+        batch_results = classifier(chunk_words, truncation=True, max_length=512)
 
-        # 의미론적 중요도
-        word_centroid = torch.mean(all_embeddings[indices], dim=0)
-        semantic_sim = util.cos_sim(word_centroid, dataset_centroid).item()
+        for j, word in enumerate(chunk_words):
+            score = chunk_scores[j]
+            test_res = batch_results[j]
+            model_confidence = test_res['score']
 
-        # 신조어(model_confidence가 낮을수록) 가중치를 높여줌
-        novelty_bonus = 2.0 - model_confidence
+            # 모델 확신도가 너무 높으면 이미 모델에 있는 단어로 학습에서 배제
+            if model_confidence > 0.92:
+                print(f"Word [{word}] is excluded: Model has confidence")
+                continue
 
-        # 최종 가중치 공식
-        weight = (sentiment_factor * score.cohesion_forward) * (semantic_sim * novelty_bonus)
+            # 해당 단어가 포함된 문장 인덱스 추출
+            indices = [idx for idx, s in enumerate(sentences) if word in s]
+            if not indices:
+                continue
 
-        keyword_weights.append({"word": word, "weight": float(round(weight, 4))})
-        print(f"Enroll [{word}, {weight}]")
+
+            # 감성 증폭 (logarithmic scaling - 상한 제한)
+            avg_sent = sum(sentence_scores[idx] for idx in indices) / len(indices)
+            sentiment_factor = math.copysign(math.log1p(abs(avg_sent) * 10), avg_sent)
+
+            # 의미론적 중요도
+            word_centroid = torch.mean(all_embeddings[indices], dim=0)
+            semantic_sim = util.cos_sim(word_centroid, dataset_centroid).item()
+
+            # 신조어(model_confidence가 낮을수록) 가중치 보너스
+            novelty_bonus = 2.0 - model_confidence
+
+            # 최종 가중치 공식
+            weight = (sentiment_factor * score.cohesion_forward) * (semantic_sim * novelty_bonus)
+
+            # 상한값 설정 (clipping)
+            weight = max(min(weight, 10.0), -10.0)
+
+            keyword_weights.append({"word": word, "weight": float(round(weight, 4))})
+            print(f"Enroll [{word}, {weight}]")
+
+        time.sleep(0.05)
 
     return keyword_weights
 

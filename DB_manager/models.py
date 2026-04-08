@@ -7,7 +7,11 @@ from enum import Enum
 
 class ProcessState(str, Enum):
     PENDING = "pending"         # 크롤링 직후
-    COMPLETED = "completed"   # NLP 직후
+    COMPLETED = "completed"   # sentiment 할당 직후
+    
+class LearningState(str, Enum):
+    PENDING = "pending"         # 크롤링 직후
+    COMPLETED = "completed"   # sentiment 할당 직후
 
 class Word(Base):
     __tablename__ = 'words'
@@ -17,6 +21,7 @@ class Word(Base):
     wordContent = Column(TEXT)
     sentiment = Column(Float, default = 0.0)
     state = Column(SQLEnum(ProcessState), default = ProcessState.PENDING) # pending 기본값, nlp 처리 후 completed 로 변경
+    learning_state = Column(SQLEnum(LearningState), default = LearningState.PENDING)
     request_id = Column(String(50)) # 어떤 요청에서 수집된 데이터인지 추적하기 위한 필드
     __table_args__ = (
         UniqueConstraint('gallId', 'date', 'wordContent', name = 'id'),

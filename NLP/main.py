@@ -1,36 +1,49 @@
-from fastapi import FastAPI, BackgroundTasks, HTTPException
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from fastapi import FastAPI, HTTPException
 
 from DB_manager.database import engine, SessionLocal
 from DB_manager import models
 import crud_NLP, KeywordExtractor, SentimentAnalyzer
+from pydantic import BaseModel
 
-app = FastAPI(title= 'inside-viral NLP Service')
+class CrawlerRequestPayload(BaseModel):
+    request_id: str
+    
+app = FastAPI(title='inside-viral NLP Service')
 
+@app.get('/healthcheck')
+def health_check():
+    return {'message': 'NLP service is running'}
+
+@app.post('/extract-keyword')
 def extract_keyword():
     db = SessionLocal()
-    # try/finally 문을 사용해야 에러 발생시에도 session을 닫을 수 있음
     try:
-        sentences = crud_NLP.get_sentences(db)
+        models.Base.metadata.create_all(bind=engine)
+        sentences = crud_NLP.get_primary_sentences(db)
         sentence_texts = [sentence.wordContent for sentence in sentences]
         weights = KeywordExtractor.main(sentence_texts)
         crud_NLP.update_weights(db, weights)
+        return {'status': 'success',
+                'message': 'Keywords extracted successfully'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
 
-def assign_sentiment():
+
+@app.post('/assign-sentiment')
+def assign_sentiment(payload: CrawlerRequestPayload):
+    request_id = payload.request_id
     db = SessionLocal()
     try:
-        sentences = crud_NLP.get_sentences(db)
+        models.Base.metadata.create_all(bind=engine)
+        sentences = crud_NLP.get_sentences(db, request_id)
         weights = {weight.word: weight.weight for weight in crud_NLP.get_weights(db)}
         results = SentimentAnalyzer.main(sentences, weights)
         crud_NLP.update_sentiment(db, results)
+        return {'status': 'success',
+                'message': 'Sentiments assigned successfully'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
-    
-# @app.sadsadsad(/KE), @app.sadsadsad(/SA) 이런식으로 api 요청 구분 가능
-# 일단은 def 형식으로 작성
-if __name__ == '__main__':
-    # extract_keyword()
-    assign_sentiment()
