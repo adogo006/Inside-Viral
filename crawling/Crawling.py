@@ -57,8 +57,12 @@ async def contentCrawler(Words: list, gallId: str, dataNum: str, firstUrl: str, 
             await asyncio.sleep(dynamic_sleep_seconds(10, 30))
             if len(Words) >= 100:
                 db = SessionLocal()
-                save_in_database(db, Words)
-                db.close()
+                try:
+                    save_in_database(db, Words)
+                except Exception as e:
+                    crawler_log(f'데이터 저장 중 오류 발생: {e}', request_id, gallId)
+                finally:
+                    db.close()
                 Words.clear()
                 save_count += 1
                 crawler_log('데이터 저장 후 리스트를 비웠습니다.', request_id, gallId)
@@ -82,7 +86,7 @@ async def contentCrawler(Words: list, gallId: str, dataNum: str, firstUrl: str, 
             contentWrap = bs.find('div', {'class': 'view_content_wrap'})
 
             if contentWrap is None:
-                if not html or len(html.strip()) < 1000:
+                if not html or len(html.strip()) < 500:
                     crawler_log('IP 차단이 의심됩니다.', request_id, gallId)
                     return -1, save_count
 
@@ -108,14 +112,18 @@ async def contentCrawler(Words: list, gallId: str, dataNum: str, firstUrl: str, 
                 writeDivP = contentWrap.find('div', {'class': 'write_div'})
                 article = writeDivP.get_text(separator=" ", strip=True)
                 titleArticle = title + ' ' + article
-                Words.append({"gallId": f"{gallId}", "wordContent": f"{titleArticle}", "date": f"{dt}"})
+                Words.append({"gallId": f"{gallId}", "wordContent": f"{titleArticle}", "date": f"{dt}", "request_id": f"{request_id}"})
                 crawler_log(f'본문: {article}', request_id, gallId)
                 continue
 
             else:
                 db = SessionLocal()
-                save_in_database(db, Words)
-                db.close()
+                try:
+                    save_in_database(db, Words)
+                except Exception as e:
+                    crawler_log(f'데이터 저장 중 오류 발생: {e}', request_id, gallId)
+                finally:
+                    db.close()
                 Words.clear()
                 crawler_log('크롤링을 성공적으로 종료합니다!', request_id, gallId)
                 return 0, save_count

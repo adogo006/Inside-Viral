@@ -16,7 +16,7 @@ Content-Type: application/json
 {
     "gall_main_url": "https://gall.dcinside.com/mgallery/board/lists/?id=krstock",
     "days": 1,
-    "days_ago": 0
+    "days_ago": 1
 }
 
 ### 비트코인 갤러리 크롤링 요청 테스트
@@ -50,7 +50,7 @@ Content-Type: application/json
 }
 
 ### 크롤링 요청 취소
-POST http://api:8000/crawl/cancel/993bebe5-5927-4664-a3cd-bf71c597c2b2
+POST http://api:8000/crawl/cancel/b64a0c14-6b33-43cf-bb4e-7a582f867a62
 
 ### 크롤링 상태 조회
 GET http://api:8000/crawl/healthcheck

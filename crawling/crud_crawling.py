@@ -25,7 +25,7 @@ def save_in_database(db: Session, word_list: list):
 
     except Exception as e:
         db.rollback()
-        print(f"save_in_weights: 오류 발생: {e}")
+        print(f"save_in_database: 오류 발생: {e}")
         return -1
     
 def delete_whitespace_word(db: Session):
