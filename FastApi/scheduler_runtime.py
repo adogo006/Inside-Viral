@@ -3,7 +3,7 @@ import os
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from scheduler_jobs import cleanup_old_logs
+from scheduler_jobs import cleanup_not_finished_logs
 
 _scheduler: AsyncIOScheduler | None = None
 
@@ -47,13 +47,13 @@ def start_scheduler() -> None:
 
     _scheduler = AsyncIOScheduler(timezone="UTC")
     _scheduler.add_job(
-        cleanup_old_logs,
+        cleanup_not_finished_logs,
         trigger=trigger,
         id="db_cleanup_logs",
         replace_existing=True,
         coalesce=True,
         max_instances=1,
-        kwargs={"retention_days": retention_days},
+        # kwargs={"retention_days": retention_days},
     )
     _scheduler.start()
 

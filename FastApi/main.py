@@ -123,7 +123,7 @@ async def crawl_callback(payload: CrawlerCallbackPayload):
     finally:
         db.close()
 
-async def request_nlp_assign_sentiment(request_id: str):
+async def request_nlp_assign_sentiment(request_id: str | None = None):
     endpoint = os.getenv("NLP_URL") + "assign-sentiment" if os.getenv("NLP_URL") else None
     if not endpoint:
         print("[API] NLP_URL is not configured, skipping sentiment assignment")
@@ -184,7 +184,6 @@ async def request_api_crawling(payload: CrawlRelayRequest):
             print(f"[API] request_id={request_id} request log 저장 실패로 요청 중단")
             raise HTTPException(status_code=500, detail="failed to create request log")
         endpoint = crawler_url.rstrip("/") + "/crawl"
-
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
