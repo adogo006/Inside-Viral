@@ -5,8 +5,19 @@ from datetime import datetime, timedelta
 from sqlalchemy.dialects.postgresql import insert
 import DB_manager.models as models
 
-def get_sentences(db: Session, skip: int = 0):
-    return db.query(models.Word).offset(skip).all()
+def get_primary_sentences(db: Session):
+    sentences = db.query(models.Word).filter(models.Word.state == "PENDING").filter(models.Word.learning_state == "PENDING").all()
+    for sentence in sentences:
+        sentence.state = models.LearningState.COMPLETED
+    db.commit()
+    return sentences
+
+# 크롤링 종료 후 받는 요청과 스케쥴러에서 주기적으로 하는 요청을 구분 -> 비동기화로 사용했을 때 꼬임을 방지
+def get_sentences(db: Session, request_id: str):
+    if(request_id == "null"):
+        return db.query(models.Word).filter(models.Word.state == "PENDING").all()
+    else:
+        return db.query(models.Word).filter(models.Word.request_id == request_id).filter(models.Word.state == "PENDING").all()
 
 def get_weights(db: Session):
     return db.query(models.WeightInWord).all()
@@ -19,7 +30,6 @@ def update_weights(db: Session, weight_list: list[dict]):
         {"word": item["word"], "weight": float(item["weight"])}
         for item in weight_list
     ]
-
     stmt = insert(models.WeightInWord).values(normalized_weight_list)
     upsert_stmt = stmt.on_conflict_do_update(
         index_elements=['word'],
@@ -31,15 +41,15 @@ def update_weights(db: Session, weight_list: list[dict]):
         db.commit()
         print("데이터 저장 완료!")
         return 0
-
     except Exception as e:
         db.rollback()
         print(f"save_in_weights: 오류 발생: {e}")
         return -1
 
-def update_sentiment(db: Session, results: list):
+def update_sentiment(db: Session, results: list, target_gall: str):
     for item in results:
-        word = db.query(models.Word).filter(models.Word.id == item["word_id"]).first()
+        word = db.query(models.Word).filter(models.Word.id == item["word_id"])\
+        .filter(models.Word.gallId == target_gall).first()
         if word:
             word.sentiment = item["final_score"]
             word.state = models.ProcessState.COMPLETED

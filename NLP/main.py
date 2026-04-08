@@ -3,7 +3,11 @@ from fastapi import FastAPI, HTTPException
 from DB_manager.database import engine, SessionLocal
 from DB_manager import models
 import crud_NLP, KeywordExtractor, SentimentAnalyzer
+from pydantic import BaseModel
 
+class CrawlerRequestPayload(BaseModel):
+    request_id: str
+    
 app = FastAPI(title='inside-viral NLP Service')
 
 @app.get('/healthcheck')
@@ -15,7 +19,7 @@ def extract_keyword():
     db = SessionLocal()
     try:
         models.Base.metadata.create_all(bind=engine)
-        sentences = crud_NLP.get_sentences(db)
+        sentences = crud_NLP.get_primary_sentences(db)
         sentence_texts = [sentence.wordContent for sentence in sentences]
         weights = KeywordExtractor.main(sentence_texts)
         crud_NLP.update_weights(db, weights)
@@ -28,11 +32,12 @@ def extract_keyword():
 
 
 @app.post('/assign-sentiment')
-def assign_sentiment():
+def assign_sentiment(payload: CrawlerRequestPayload):
+    request_id = payload.request_id
     db = SessionLocal()
     try:
         models.Base.metadata.create_all(bind=engine)
-        sentences = crud_NLP.get_sentences(db)
+        sentences = crud_NLP.get_sentences(db, request_id)
         weights = {weight.word: weight.weight for weight in crud_NLP.get_weights(db)}
         results = SentimentAnalyzer.main(sentences, weights)
         crud_NLP.update_sentiment(db, results)
@@ -42,8 +47,3 @@ def assign_sentiment():
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
-
-
-if __name__ == '__main__':
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
