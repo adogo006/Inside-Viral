@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from typing import Optional
 from datetime import datetime, timezone
+from contextlib import asynccontextmanager
 
 import os
 import uuid
@@ -12,8 +13,19 @@ from schemas import CrawlRelayRequest, CrawlerCallbackPayload, RequestLogUpsert
 from api_crud import api_create_request_log, api_get_request_log, api_update_request_log
 from DB_manager.database import SessionLocal, engine
 from DB_manager import models
+from scheduler_runtime import start_scheduler, stop_scheduler
 
-app = FastAPI(title="InsideViral API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_scheduler()
+    try:
+        yield
+    finally:
+        stop_scheduler()
+
+
+app = FastAPI(title="InsideViral API", lifespan=lifespan)
 
 
 async def notify_user_or_admin(request_id: str, status: str, error_message: Optional[str] = None, saved_rows: Optional[int] = None):
@@ -106,10 +118,28 @@ async def crawl_callback(payload: CrawlerCallbackPayload):
         )
         api_update_request_log(db, payload.request_id, updated_log)
         await notify_user_or_admin(payload.request_id, payload.status, payload.error_message, payload.saved_rows)
+        await request_nlp_assign_sentiment(payload.request_id)
         return {"message": "callback accepted", "request_id": payload.request_id}
     finally:
         db.close()
 
+async def request_nlp_assign_sentiment(request_id: str):
+    endpoint = os.getenv("NLP_URL") + "assign-sentiment" if os.getenv("NLP_URL") else None
+    if not endpoint:
+        print("[API] NLP_URL is not configured, skipping sentiment assignment")
+        return
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(endpoint, json={"request_id": request_id})
+            response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text if exc.response is not None else "NLP error"
+        print(f"[API] NLP assign sentiment error: {detail}")
+    except httpx.RequestError as exc:
+        print(f"[API] NLP assign sentiment unavailable: {exc}")
+
+    return {"message": "NLP assign sentiment task completed"}
+    
 
 @app.post("/crawl")
 async def request_api_crawling(payload: CrawlRelayRequest):

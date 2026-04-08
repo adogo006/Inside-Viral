@@ -95,9 +95,9 @@ async def task_crawl_and_save(url: str, days: int, previousDays: int, request_id
 def health_check():
     task_list ="\n".join(active_crawl_tasks.keys())
 
-    return {'message': (f'Crawler service is running({runtime_state.active_tasks}/{runtime_state.MAX_CONCURRENT_TASKS})\n'
-                         '---현재 활성 프로세스 상태---\n'
-                        f'{task_list}')}
+    return {'message': (f"Crawler service is running({runtime_state.active_tasks}/{runtime_state.MAX_CONCURRENT_TASKS})\n"
+                         f"---현재 활성 프로세스 상태---\n"
+                        f"{task_list}")}
 
 
 @app.post('/cancel/{request_id}')

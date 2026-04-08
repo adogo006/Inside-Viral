@@ -6,5 +6,5 @@ DROP TABLE words, weights
 ;
 
 -- @block column adder
-ALTER TABLE words ADD COLUMN request_id VARCHAR(50)
+ALTER TABLE words ADD COLUMN state_edu processstate NOT NULL DEFAULT 'pending'
 ;
