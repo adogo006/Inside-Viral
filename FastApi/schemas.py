@@ -12,7 +12,7 @@ class CrawlRelayRequest(BaseModel):
 
 class CrawlerCallbackPayload(BaseModel):
     request_id: str
-    status: Literal["succeeded", "failed", "cancelled"]
+    status: Literal["succeeded", "failed", "cancelled", "cancelling"]
     error_message: Optional[str] = None
     finished_at: Optional[datetime] = None
     saved_rows: Optional[int] = None

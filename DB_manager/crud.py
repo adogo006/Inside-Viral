@@ -93,5 +93,17 @@ def delete_low_priority_words(db: Session, threshold: int = 1000):
             db.execute(delete_stmt)
             db.commit()
             print(f"{delete_count} 개의 낮은 우선순위 단어 삭제 완료!")
+            return delete_count
+        
+    print("삭제할 단어가 없습니다.")
+    return 0
 
-    db.commit()
+def get_request_status(db : Session, request_id: str) -> str | None:
+        request_log = (
+            db.query(models.RequestLog)
+            .filter(models.RequestLog.request_id == request_id)
+            .first()
+        )
+        if request_log is None:
+            return None
+        return request_log.status

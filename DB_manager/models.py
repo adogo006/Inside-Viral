@@ -8,10 +8,20 @@ from enum import Enum
 class ProcessState(str, Enum):
     PENDING = "pending"         # 크롤링 직후
     COMPLETED = "completed"   # sentiment 할당 직후
-    
+
 class LearningState(str, Enum):
     PENDING = "pending"         # 크롤링 직후
     COMPLETED = "completed"   # sentiment 할당 직후
+
+class RequestStatus(str, Enum):
+    """크롤링 요청의 생명주기 상태"""
+    PENDING = "pending"              # 초기 상태
+    RUNNING = "running"              # 크롤러에서 실행 중
+    SUCCEEDED = "succeeded"          # 크롤링 성공
+    FAILED = "failed"                # 크롤링 실패
+    CANCELLED = "cancelled"          # 사용자가 취소
+    CANCELLING = "cancelling"        # 취소 중
+    DISPATCH_FAILED = "dispatch_failed"  # 크롤러로의 요청 실패
 
 class Word(Base):
     __tablename__ = 'words'
@@ -45,7 +55,7 @@ class RequestLog(Base):
     gall_main_url = Column(String(255))
     days = Column(Integer)
     days_ago = Column(Integer)
-    status = Column(String(20))
+    status = Column(SQLEnum(RequestStatus), default=RequestStatus.PENDING)
     error_message = Column(TEXT, nullable=True)
     saved_rows = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

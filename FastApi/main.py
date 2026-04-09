@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from uuid import UUID
 
 from schemas import CrawlRelayRequest, CrawlerCallbackPayload, RequestLogUpsert
+from DB_manager.models import RequestStatus
 from api_crud import api_create_request_log, api_get_request_log, api_update_request_log
 from DB_manager.database import SessionLocal, engine
 from DB_manager import models
@@ -166,7 +167,7 @@ async def request_api_crawling(payload: CrawlRelayRequest):
                 gall_main_url=payload.gall_main_url,
                 days=payload.days,
                 days_ago=payload.days_ago,
-                status="pending",
+                status=RequestStatus.PENDING.value,
                 error_message=None,
                 saved_rows=0,
                 finished_at=None,
@@ -197,7 +198,7 @@ async def request_api_crawling(payload: CrawlRelayRequest):
                 gall_main_url=payload.gall_main_url,
                 days=payload.days,
                 days_ago=payload.days_ago,
-                status="dispatch_failed",
+                status=RequestStatus.DISPATCH_FAILED.value,
                 error_message=str(exc),
                 saved_rows=0,
                 finished_at=datetime.now(timezone.utc),
@@ -211,7 +212,7 @@ async def request_api_crawling(payload: CrawlRelayRequest):
                 gall_main_url=payload.gall_main_url,
                 days=payload.days,
                 days_ago=payload.days_ago,
-                status="dispatch_failed",
+                status=RequestStatus.DISPATCH_FAILED.value,
                 error_message=str(exc),
                 saved_rows=0,
                 finished_at=datetime.now(timezone.utc),
@@ -226,7 +227,7 @@ async def request_api_crawling(payload: CrawlRelayRequest):
             gall_main_url=payload.gall_main_url,
             days=payload.days,
             days_ago=payload.days_ago,
-            status=data.get("status", "running"),
+            status=data.get("status", RequestStatus.RUNNING.value),
             error_message=None,
             saved_rows=0,
             finished_at=None,
@@ -236,7 +237,7 @@ async def request_api_crawling(payload: CrawlRelayRequest):
         return {
             "message": "crawl request accepted",
             "request_id": request_id,
-            "status": data.get("status", "running"),
+            "status": data.get("status", RequestStatus.RUNNING.value),
         }
     finally:
         db.close()
@@ -257,7 +258,14 @@ async def cancel_api_crawling(request_id: str):
             raise HTTPException(status_code=404, detail="request_id not found")
 
         # 이미 종료되었거나 취소 중인 작업인지 확인
-        if request_log.status in ["succeeded", "failed", "cancelled", "dispatch_failed", "cancelling"]:
+        terminal_statuses = [
+            RequestStatus.SUCCEEDED.value,
+            RequestStatus.FAILED.value,
+            RequestStatus.CANCELLED.value,
+            RequestStatus.DISPATCH_FAILED.value,
+            RequestStatus.CANCELLING.value
+        ]
+        if request_log.status in terminal_statuses:
             raise HTTPException(
                 status_code=400,
                 detail=f"Cannot cancel request with status '{request_log.status}'. Only running or pending requests can be cancelled."
@@ -281,7 +289,7 @@ async def cancel_api_crawling(request_id: str):
             gall_main_url=request_log.gall_main_url,
             days=request_log.days,
             days_ago=request_log.days_ago,
-            status="cancelling",
+            status=RequestStatus.CANCELLING.value,
             error_message=None,
             saved_rows=request_log.saved_rows,
             finished_at=None,

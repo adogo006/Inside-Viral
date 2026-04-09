@@ -10,6 +10,7 @@ import importlib
 
 from DB_manager.database import engine, SessionLocal
 from DB_manager import models
+from DB_manager.models import RequestStatus
 from Crawling import startCrawler
 from crud_crawling import export_to_txt, delete_whitespace_word
 
@@ -31,7 +32,7 @@ class CrawlerRequest(BaseModel):
     callback_url: str | None = None
 class CrawlerCallbackPayload(BaseModel):
     request_id: str
-    status: Literal["succeeded", "failed"]
+    status: Literal["succeeded", "failed", "cancelled", "cancelling"]
     error_message: Optional[str] = None
     finished_at: Optional[datetime] = None
     saved_rows: Optional[int] = None
@@ -76,15 +77,15 @@ async def task_crawl_and_save(url: str, days: int, previousDays: int, request_id
         saved_rows = save_count * 100
         print(f'(Crawler)[{request_id}] 크롤링을 종료합니다.')
         if isError == -1:
-            await send_callback(callback_url, request_id, 'failed', 'Crawling failed', saved_rows)
+            await send_callback(callback_url, request_id, RequestStatus.FAILED.value, 'Crawling failed', saved_rows)
         else:
-            await send_callback(callback_url, request_id, 'succeeded', 'Crawling succeeded', saved_rows)
+            await send_callback(callback_url, request_id, RequestStatus.SUCCEEDED.value, 'Crawling succeeded', saved_rows)
     except asyncio.CancelledError:
         print(f'(Crawler)[{request_id}] 크롤링이 사용자에 의해 강제 종료되었습니다.')
-        await send_callback(callback_url, request_id, 'cancelled', 'Crawling cancelled by user')
+        await send_callback(callback_url, request_id, RequestStatus.CANCELLED.value, 'Crawling cancelled by user')
     except Exception as exc:
         print(f'(Crawler)[{request_id}] 크롤링 실패: {exc}')
-        await send_callback(callback_url, request_id, 'failed', str(exc))
+        await send_callback(callback_url, request_id, RequestStatus.FAILED.value, str(exc))
     finally:
         runtime_state.active_tasks -= 1
         active_crawl_tasks.pop(request_id, None)
@@ -121,7 +122,7 @@ async def cancel_crawl(request_id: str):
     return {
         'message': 'crawl task cancellation requested',
         'request_id': request_id,
-        'status': 'cancelling'
+        'status': RequestStatus.CANCELLING.value
     }
 
 
@@ -131,7 +132,7 @@ async def request_crawl(payload: CrawlerRequest):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={'message': f"Too many concurrent tasks. Currently {runtime_state.active_tasks}/{runtime_state.MAX_CONCURRENT_TASKS} tasks running.",
-                    'request_id': payload.request_id, 'status': 'failed'}
+                    'request_id': payload.request_id, 'status': RequestStatus.FAILED.value}
            )
 
     task = asyncio.create_task(
@@ -147,7 +148,7 @@ async def request_crawl(payload: CrawlerRequest):
     return {
         'message': f'crawl task running {runtime_state.active_tasks}/{runtime_state.MAX_CONCURRENT_TASKS}',
         'request_id': payload.request_id,
-        'status': 'running'
+        'status': RequestStatus.RUNNING.value
     }
 
 
