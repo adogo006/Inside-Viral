@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:kr.investing.com)",
+      "Bash(git ls-tree:*)",
+      "Bash(grep -E \"\\\\.py$\")"
+    ]
+  }
+}
