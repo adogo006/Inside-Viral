@@ -51,12 +51,3 @@ def api_update_request_log(db: Session, request_id: str, request_log: RequestLog
         print(f"크롤링 요청({request_log.request_id}) 로그를 찾을 수 없습니다.")
         return -1
     
-def get_request_status(db : Session, request_id: str) -> str | None:
-        request_log = (
-            db.query(models.RequestLog)
-            .filter(models.RequestLog.request_id == request_id)
-            .first()
-        )
-        if request_log is None:
-            return None
-        return request_log.status

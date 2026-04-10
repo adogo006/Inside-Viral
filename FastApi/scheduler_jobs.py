@@ -60,7 +60,6 @@ def delete_low_priority_words_in_scheduler() -> None:
 
 def request_crawlling_in_scheduler() -> None:
     """Request previous-day crawling for all galls and retry on failed/cancelled."""
-    api_base_url = (os.getenv("API_URL") or "http://127.0.0.1:8000/").strip()
     retry_limit = int(os.getenv("SCHEDULER_CRAWL_RETRY_LIMIT", "2"))
     timeout_sec = int(os.getenv("SCHEDULER_CRAWL_TIMEOUT_SEC", "1800"))
     poll_interval_sec = float(os.getenv("SCHEDULER_CRAWL_POLL_INTERVAL_SEC", "5"))
