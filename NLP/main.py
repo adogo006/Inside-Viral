@@ -26,6 +26,7 @@ async def extract_keyword():
     return {'status': 'success', 'message': 'Keywords extracted successfully'}
 
 
+# asyncio.Lock()으로 동시 호출 방지 락 설정 필요?
 async def do_extract_keyword():
     def _sync_work():
         db = SessionLocal()
