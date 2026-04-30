@@ -1,0 +1,56 @@
+### 미국주식 크롤링 요청 테스트
+POST http://api:8000/crawl
+Content-Type: application/json
+
+{
+    "gall_main_url": "https://gall.dcinside.com/mgallery/board/lists/?id=stockus",
+    "days": 1,
+    "days_ago": 10
+}
+
+
+### 한국 주식 갤러리 크롤링 요청 테스트
+POST http://api:8000/crawl
+Content-Type: application/json
+
+{
+    "gall_main_url": "https://gall.dcinside.com/mgallery/board/lists/?id=krstock",
+    "days": 1,
+    "days_ago": 1
+}
+
+### 비트코인 갤러리 크롤링 요청 테스트
+POST http://api:8000/crawl
+Content-Type: application/json
+
+{
+    "gall_main_url": "https://gall.dcinside.com/board/lists/?id=bitcoins_new1",
+    "days": 10,
+    "days_ago": 0
+}
+
+### 블루아카이브 갤러리 크롤링 요청 테스트
+POST http://api:8000/crawl
+Content-Type: application/json
+
+{
+    "gall_main_url": "https://gall.dcinside.com/mgallery/board/lists/?id=projectmx",
+    "days": 1,
+    "days_ago": 0
+}
+
+### 해외주식 갤러리 크롤링 요청 테스트
+POST http://api:8000/crawl
+Content-Type: application/json
+
+{
+    "gall_main_url": "https://gall.dcinside.com/mgallery/board/lists/?id=tenbagger",
+    "days": 1,
+    "days_ago": 100
+}
+
+### 크롤링 요청 취소
+POST http://api:8000/crawl/cancel/c8a01cee-5eed-4bff-90a9-7166da483c23
+
+### 크롤링 상태 조회
+GET http://api:8000/crawl/healthcheck

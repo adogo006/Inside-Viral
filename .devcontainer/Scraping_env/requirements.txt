@@ -1,0 +1,13 @@
+# ------크롤링 라이브러리--------
+fastapi
+uvicorn
+requests
+httpx # html 비동기 요청용 라이브러리
+beautifulsoup4
+#-----db 조작용 라이브러리-------
+sqlalchemy            
+ # 파이썬 DB 관리 도구 (ORM)
+psycopg2-binary       
+ # PostgreSQL 파이썬 드라이버
+alembic 
+ # db 테이블 수정 용도

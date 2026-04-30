@@ -2,7 +2,7 @@
 
 from sqlalchemy import Column, Integer, String, Float, DateTime, TEXT, UniqueConstraint, Enum as SQLEnum
 from sqlalchemy.sql import func
-from database import Base
+from DB_manager.database import Base
 from enum import Enum
 
 class ProcessState(str, Enum):
@@ -71,3 +71,4 @@ class AverageSentimentForOneDay(Base):
     __table_args__ = (
         UniqueConstraint('gall_id', 'date', name = 'gall_id_date'),
     )
+    
