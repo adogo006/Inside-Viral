@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from typing import Optional
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
@@ -9,9 +9,8 @@ import httpx
 from pydantic import ValidationError
 from uuid import UUID
 
-from schemas import CrawlRelayRequest, CrawlerCallbackPayload, RequestLogUpsert
-from DB_manager.models import RequestStatus
-from api_crud import api_create_request_log, api_get_request_log, api_update_request_log
+from schemas import CrawlRelayRequest, CrawlerCallbackPayload, RequestLogUpsert, SentimentResponse, SentimentDataPoint
+from api_crud import api_create_request_log, api_get_request_log, api_update_request_log, api_get_average_sentiments
 from DB_manager.database import SessionLocal, engine
 from DB_manager import models
 from scheduler_runtime import start_scheduler, stop_scheduler
@@ -54,10 +53,58 @@ async def notify_user_or_admin(request_id: str, status: str, error_message: Opti
 def read_root():
     return {"message": "Welcome to InsideViral API Server"}
 
+@app.get("/api/sentiments")
+def get_sentiments(
+    gall_id: str = Query(..., description="갤러리 ID (예: us-stocks, ko-stocks, crypto)"),
+    timeframe: str = Query("7D", description="시간대 (1D, 7D, 1M, 1Y)")
+):
+    """
+    특정 갤러리의 시간대별 평균 감정지수 조회
+
+    - **gall_id**: 갤러리 ID (필수)
+      - `us-stocks`: 미국주식
+      - `ko-stocks`: 한국주식
+      - `crypto`: 비트코인
+    - **timeframe**: 시간대
+      - `1D`: 하루 (오늘)
+      - `7D`: 7일
+      - `1M`: 30일
+      - `1Y`: 365일
+    """
+    # 시간대별 조회 일수 매핑
+    days_map = {
+        "1D": 1,
+        "7D": 7,
+        "1M": 30,
+        "1Y": 365
+    }
+
+    days = days_map.get(timeframe, 7)
+
+    db = SessionLocal()
+    try:
+        sentiments = api_get_average_sentiments(db, gall_id, days=days)
+
+        data = [
+            SentimentDataPoint(
+                date=s.date.strftime("%Y-%m-%d"),
+                average_sentiment=s.average_sentiment
+            )
+            for s in sentiments
+        ]
+
+        return SentimentResponse(
+            gall_id=gall_id,
+            timeframe=timeframe,
+            data=data
+        )
+    finally:
+        db.close()
+
 @app.get("/crawl/healthcheck")
 async def health_check():
     endpoint = os.getenv("CRAWLER_URL") + "healthcheck" if os.getenv("CRAWLER_URL") else None
-    if not endpoint:       
+    if not endpoint:
         raise HTTPException(status_code=500, detail="CRAWLER_URL is not configured")
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -140,7 +187,7 @@ async def request_nlp_assign_sentiment(request_id: str | None = None):
         print(f"[API] NLP assign sentiment unavailable: {exc}")
 
     return {"message": "NLP assign sentiment task completed"}
-    
+
 
 @app.post("/crawl")
 async def request_api_crawling(payload: CrawlRelayRequest):
@@ -167,7 +214,7 @@ async def request_api_crawling(payload: CrawlRelayRequest):
                 gall_main_url=payload.gall_main_url,
                 days=payload.days,
                 days_ago=payload.days_ago,
-                status=RequestStatus.PENDING.value,
+                status="pending",
                 error_message=None,
                 saved_rows=0,
                 finished_at=None,
@@ -198,7 +245,7 @@ async def request_api_crawling(payload: CrawlRelayRequest):
                 gall_main_url=payload.gall_main_url,
                 days=payload.days,
                 days_ago=payload.days_ago,
-                status=RequestStatus.DISPATCH_FAILED.value,
+                status="dispatch_failed",
                 error_message=str(exc),
                 saved_rows=0,
                 finished_at=datetime.now(timezone.utc),
@@ -212,7 +259,7 @@ async def request_api_crawling(payload: CrawlRelayRequest):
                 gall_main_url=payload.gall_main_url,
                 days=payload.days,
                 days_ago=payload.days_ago,
-                status=RequestStatus.DISPATCH_FAILED.value,
+                status="dispatch_failed",
                 error_message=str(exc),
                 saved_rows=0,
                 finished_at=datetime.now(timezone.utc),
@@ -227,7 +274,7 @@ async def request_api_crawling(payload: CrawlRelayRequest):
             gall_main_url=payload.gall_main_url,
             days=payload.days,
             days_ago=payload.days_ago,
-            status=data.get("status", RequestStatus.RUNNING.value),
+            status=data.get("status", "running"),
             error_message=None,
             saved_rows=0,
             finished_at=None,
@@ -237,7 +284,7 @@ async def request_api_crawling(payload: CrawlRelayRequest):
         return {
             "message": "crawl request accepted",
             "request_id": request_id,
-            "status": data.get("status", RequestStatus.RUNNING.value),
+            "status": data.get("status", "running"),
         }
     finally:
         db.close()
@@ -258,14 +305,7 @@ async def cancel_api_crawling(request_id: str):
             raise HTTPException(status_code=404, detail="request_id not found")
 
         # 이미 종료되었거나 취소 중인 작업인지 확인
-        terminal_statuses = [
-            RequestStatus.SUCCEEDED.value,
-            RequestStatus.FAILED.value,
-            RequestStatus.CANCELLED.value,
-            RequestStatus.DISPATCH_FAILED.value,
-            RequestStatus.CANCELLING.value
-        ]
-        if request_log.status in terminal_statuses:
+        if request_log.status in ["succeeded", "failed", "cancelled", "dispatch_failed", "cancelling"]:
             raise HTTPException(
                 status_code=400,
                 detail=f"Cannot cancel request with status '{request_log.status}'. Only running or pending requests can be cancelled."
@@ -289,7 +329,7 @@ async def cancel_api_crawling(request_id: str):
             gall_main_url=request_log.gall_main_url,
             days=request_log.days,
             days_ago=request_log.days_ago,
-            status=RequestStatus.CANCELLING.value,
+            status="cancelling",
             error_message=None,
             saved_rows=request_log.saved_rows,
             finished_at=None,
@@ -304,6 +344,3 @@ async def cancel_api_crawling(request_id: str):
         }
     finally:
         db.close()
-
-
-

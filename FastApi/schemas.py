@@ -28,3 +28,16 @@ class RequestLogUpsert(BaseModel):
     saved_rows: int = 0
     finished_at: Optional[datetime] = None
     model_config = {"from_attributes": True}
+
+
+class SentimentDataPoint(BaseModel):
+    """하루 평균 감정지수 데이터 포인트"""
+    date: str
+    average_sentiment: float
+
+
+class SentimentResponse(BaseModel):
+    """감정지수 API 응답"""
+    gall_id: str
+    timeframe: str
+    data: list[SentimentDataPoint]
