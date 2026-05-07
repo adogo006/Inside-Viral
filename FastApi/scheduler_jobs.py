@@ -4,7 +4,7 @@ import time
 
 import httpx
 
-from FastApi.main import request_api_crawling, cancel_api_crawling
+import asyncio
 from DB_manager.database import SessionLocal
 from DB_manager.models import RequestLog, Word, RequestStatus
 from DB_manager.crud import compute_average_sentiment, delete_low_priority_words, get_request_status
@@ -38,7 +38,7 @@ def compute_average_sentiment_in_scheduler() -> None:
         gall_ids = db.query(Word.gallId).distinct().all()
         for gall_id_tuple in gall_ids:
             gall_id = gall_id_tuple[0]
-            compute_average_sentiment(db, gall_id, datetime.now(), period=1)
+            compute_average_sentiment(db, gall_id, (datetime.now() - timedelta(days=1)), period=1)
             print(f"[SCHEDULER] compute_average_sentiment_for_{gall_id} completed")
         print(f"[SCHEDULER] compute_average_sentiment_for_all_galls completed")
     except Exception as exc:
@@ -73,14 +73,19 @@ def request_crawlling_in_scheduler() -> None:
 
     success_count = 0
 
-    for gall_main_url in dict_urls_request_id.keys():
+    for gall_main_url in list(dict_urls_request_id.keys()):
         payload = {
             "gall_main_url": gall_main_url,
             "days": 1,
             "days_ago": 1,
         }
-        response = request_api_crawling(payload)
-        dict_urls_request_id[gall_main_url] = response["request_id"]
+        try:
+            from FastApi import main as api_main
+            response = asyncio.run(api_main.request_api_crawling(payload))
+            dict_urls_request_id[gall_main_url] = response.get("request_id")
+        except Exception as exc:
+            print(f"[SCHEDULER] failed to request crawling for {gall_main_url}: {exc}")
+            dict_urls_request_id[gall_main_url] = None
 
     end_time = time.monotonic() + timeout_sec
     end_count = len(dict_urls_request_id)
@@ -98,14 +103,21 @@ def request_crawlling_in_scheduler() -> None:
             finally:                
                 db.close()
 
-            if request_id in {None, RequestStatus.SUCCEEDED.value, RequestStatus.FAILED.value, RequestStatus.CANCELLED.value, RequestStatus.DISPATCH_FAILED.value}:
+            # If we don't have a request_id yet or the status is terminal, retry dispatch
+            terminal_values = {RequestStatus.SUCCEEDED.value, RequestStatus.FAILED.value, RequestStatus.CANCELLED.value, RequestStatus.DISPATCH_FAILED.value}
+            if request_id is None or status in terminal_values:
                 payload = {
                     "gall_main_url": gall_main_url,
                     "days": 1,
                     "days_ago": 1,
                 }
-                response = request_api_crawling(payload)
-                dict_urls_request_id[gall_main_url] = response["request_id"]
+                try:
+                    from FastApi import main as api_main
+                    response = asyncio.run(api_main.request_api_crawling(payload))
+                    dict_urls_request_id[gall_main_url] = response.get("request_id")
+                except Exception as exc:
+                    print(f"[SCHEDULER] retry dispatch failed for {gall_main_url}: {exc}")
+                    dict_urls_request_id[gall_main_url] = None
                 continue
 
             if status == RequestStatus.SUCCEEDED.value:
@@ -118,5 +130,9 @@ def request_crawlling_in_scheduler() -> None:
     else:
         print(f"[SCHEDULER] Crawling tasks did not complete within the timeout.")
         for gall_main_url, request_id in dict_urls_request_id.items():
-            cancel_api_crawling(request_id)
-            print(f" - Failed: {gall_main_url} (request_id={request_id})")
+            try:
+                from FastApi import main as api_main
+                asyncio.run(api_main.cancel_api_crawling(request_id))
+                print(f" - Failed: {gall_main_url} (request_id={request_id})")
+            except Exception as exc:
+                print(f"[SCHEDULER] failed to cancel {gall_main_url} (request_id={request_id}): {exc}")

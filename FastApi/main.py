@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        
         stop_scheduler()
 
 

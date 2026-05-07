@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import DateTime, func, select
 from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime, timedelta, timezone
-import models
+from DB_manager import models
 
 
 # 1. CREATE 기능
