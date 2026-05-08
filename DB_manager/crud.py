@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import DateTime, func, select
 from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime, timedelta, timezone
-import models
+from DB_manager import models
 
 
 # 1. CREATE 기능
@@ -54,7 +54,6 @@ def compute_average_sentiment(db: Session, gall_id: str, target_date: datetime, 
                 models.Word.gallId == gall_id,
                 models.Word.date >= current_date,
                 models.Word.date < day_end,
-                models.Word.state == models.ProcessState.COMPLETED,
             )
             average_sentiment = db.execute(stmt).scalar_one_or_none()
             if average_sentiment is None:

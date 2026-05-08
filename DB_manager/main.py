@@ -1,7 +1,7 @@
 #실행 파일 (FAST_API 및 단순실행)
-from database import engine, SessionLocal
+from DB_manager.database import engine, SessionLocal
 from datetime import datetime
-import models, crud
+from DB_manager import models, crud
 
 
 def test_database():
