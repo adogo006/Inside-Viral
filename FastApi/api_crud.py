@@ -30,7 +30,7 @@ def api_create_request_log(db: Session, request_log: RequestLogUpsert):
         db.rollback()
         print(f"크롤링 요청({request_log.request_id}) 저장 실패: {e}")
         return -1
-    
+
 def api_get_request_log(db: Session, request_id: str):
     return db.query(models.RequestLog).filter(models.RequestLog.request_id == request_id).first()
 
@@ -50,4 +50,14 @@ def api_update_request_log(db: Session, request_id: str, request_log: RequestLog
     else:
         print(f"크롤링 요청({request_log.request_id}) 로그를 찾을 수 없습니다.")
         return -1
-    
+
+
+# AverageSentimentForOneDay CRUD
+def api_get_average_sentiments(db: Session, gall_id: str, days: int = 7):
+    """특정 갤러리의 최근 N일치 평균 감정지수 조회"""
+    from datetime import datetime, timedelta, timezone
+    dt = datetime.now(timezone.utc) - timedelta(days=days)
+    return db.query(models.AverageSentimentForOneDay).filter(
+        models.AverageSentimentForOneDay.gall_id == gall_id,
+        models.AverageSentimentForOneDay.date >= dt
+    ).order_by(models.AverageSentimentForOneDay.date.asc()).all()

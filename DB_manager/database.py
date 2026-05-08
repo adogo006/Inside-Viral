@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 DB_URL = f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
 
-try: 
+try:
     engine = create_engine(DB_URL)
     print('DB 연결 성공!')
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
