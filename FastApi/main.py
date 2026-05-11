@@ -120,7 +120,7 @@ async def crawl_callback(payload: CrawlerCallbackPayload):
         )
         api_update_request_log(db, payload.request_id, updated_log)
         await notify_user_or_admin(payload.request_id, payload.status, payload.error_message, payload.saved_rows)
-        await request_nlp_assign_sentiment(payload.request_id)
+        #await request_nlp_assign_sentiment(payload.request_id)
         return {"message": "callback accepted", "request_id": payload.request_id}
     finally:
         db.close()
@@ -134,13 +134,15 @@ async def request_nlp_assign_sentiment(request_id: str | None = None):
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(endpoint, json={"request_id": request_id})
             response.raise_for_status()
+            data = response.json()
+            print(f"[API] NLP request accepted: {data.get('nlp_request_id')}")
     except httpx.HTTPStatusError as exc:
         detail = exc.response.text if exc.response is not None else "NLP error"
         print(f"[API] NLP assign sentiment error: {detail}")
     except httpx.RequestError as exc:
         print(f"[API] NLP assign sentiment unavailable: {exc}")
 
-    return {"message": "NLP assign sentiment task completed"}
+    return {"message": "NLP assign sentiment task requested"}
     
 
 @app.post("/crawl")

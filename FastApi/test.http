@@ -5,7 +5,7 @@ Content-Type: application/json
 {
     "gall_main_url": "https://gall.dcinside.com/mgallery/board/lists/?id=stockus",
     "days": 1,
-    "days_ago": 10
+    "days_ago": 2
 }
 
 
@@ -46,10 +46,31 @@ Content-Type: application/json
 {
     "gall_main_url": "https://gall.dcinside.com/mgallery/board/lists/?id=tenbagger",
     "days": 1,
-    "days_ago": 100
+    "days_ago": 2
 }
 
 ### 크롤링 요청 취소
-POST http://api:8000/crawl/cancel/4f224b86-1843-4ef8-a406-a19a45415727
+POST http://api:8000/crawl/cancel/105569db-860d-4e9d-a685-4e1cf259492c
 ### 크롤링 상태 조회
 GET http://api:8000/crawl/healthcheck
+
+----
+
+### NLP 가중치 학습 테스트
+POST http://nlp:8001/extract-keyword
+Content-Type: application/json
+
+{
+
+}
+
+### NLP 감정 분석 테스트
+POST http://nlp:8001/assign-sentiment
+Content-Type: application/json
+
+{
+    "request_id": "105569db-860d-4e9d-a685-4e1cf259492c"
+}
+
+### NLP 상태 조회
+GET http://nlp:8001/nlp/status/d68038f1-508f-40c0-8ca7-f144236e71c8
