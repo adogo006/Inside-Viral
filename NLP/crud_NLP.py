@@ -8,7 +8,7 @@ import DB_manager.models as models
 def get_primary_sentences(db: Session):
     sentences = db.query(models.Word).filter(models.Word.state == "PENDING").filter(models.Word.learning_state == "PENDING").all()
     for sentence in sentences:
-        sentence.state = models.LearningState.COMPLETED
+        sentence.learning_state = models.LearningState.COMPLETED
     db.commit()
     return sentences
 

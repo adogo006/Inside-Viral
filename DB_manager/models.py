@@ -61,6 +61,23 @@ class RequestLog(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     finished_at = Column(DateTime(timezone=True), nullable=True)
 
+class NlpRequestStatus(str, Enum):
+    """NLP 요청의 생명주기 상태"""
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+class NlpRequestLog(Base):
+    __tablename__ = 'nlp_request_logs'
+    id = Column(Integer, primary_key = True, index = True)
+    request_id = Column(String(50), unique=True)
+    status = Column(SQLEnum(NlpRequestStatus), default=NlpRequestStatus.PENDING)
+    error_message = Column(TEXT, nullable=True)
+    processed_sentences = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+
 class AverageSentimentForOneDay(Base):
     __tablename__ = 'average_sentiments_for_one_day'
     id = Column(Integer, primary_key = True, index = True)

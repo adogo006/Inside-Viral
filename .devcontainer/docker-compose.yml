@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:16-bookworm # 안정적인 Bookworm 버전 권장 이미지를 온라인에서 가져와서 사용
