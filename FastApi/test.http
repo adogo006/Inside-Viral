@@ -50,7 +50,7 @@ Content-Type: application/json
 }
 
 ### 크롤링 요청 취소
-POST http://api:8000/crawl/cancel/1e21ccc0-45ad-4841-bca9-f2280ff18bbb
+POST http://api:8000/crawl/cancel/90347c63-ea19-45dc-a853-79f9c9535f3d
 ### 크롤링 상태 조회
 GET http://api:8000/crawl/healthcheck
 
