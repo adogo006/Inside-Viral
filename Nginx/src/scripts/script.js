@@ -1,10 +1,10 @@
 let chart = null;
 let lineSeries = null;
-let currentGallery = 'us-stocks';
+let currentGallery = 'stockus';
 let currentTimeframe = '7D';
 
 // API 기본 URL (환경에 맞게 조정)
-const API_BASE_URL = '/api';
+const API_BASE_URL = 'http://localhost:8000';
 
 function initChart() {
     const container = document.getElementById('chart-container');
@@ -36,7 +36,7 @@ function initChart() {
     lineSeries = chart.addLineSeries({
         color: '#49a2f6',
         lineWidth: 2,
-        priceFormat: { type: 'price', precision: 0 }
+        priceFormat: { type: 'price', precision: 2 }
     });
 
     loadChartData();
@@ -48,18 +48,24 @@ function initChart() {
 
 async function loadChartData() {
     try {
-        const response = await fetch(
-            `${API_BASE_URL}/sentiments?gall_id=${currentGallery}&timeframe=${currentTimeframe}`
-        );
+        const url = `${API_BASE_URL}/sentiment/history?gall_id=${currentGallery}&period=${currentTimeframe}`;
+        const response = await fetch(url);
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const data = await response.json();
 
-        if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
+        if (!data || data.length === 0) {
+            returnErr();
+            return;
         }
 
-        const result = await response.json();
-        renderChartData(result.data);
+        // 차트 데이터 설정
+        lineSeries.setData(data);
+        chart.timeScale().fitContent();
+        updateEmotionGif(data);
+
     } catch (error) {
-        console.error('데이터 로드 실패:', error);
         returnErr();
     }
 }
@@ -71,6 +77,7 @@ function renderChartData(data) {
     }
 
     const chartData = data.map((item) => {
+        // item.date 형식: "2026-05-15"
         const [year, month, day] = item.date.split('-').map(Number);
         const dateObj = new Date(Date.UTC(year, month - 1, day));
         return {
