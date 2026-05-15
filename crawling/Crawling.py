@@ -133,17 +133,37 @@ async def contentCrawler(Words: list, gallId: str, dataNum: str, firstUrl: str, 
 async def firstListParsing(initUrl: str, now: datetime, previousDays: int, request_id: str | None = None):
     errorPoint = 0
     count = 1
-
     url = initUrl
     selected_headers = REQUEST_HEADERS_LIST[randint(0, len(REQUEST_HEADERS_LIST)-1)]
     async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers=selected_headers)
-        html = response.content
-        bs = BeautifulSoup(html, 'html.parser')
-        initList = bs.find('tr', {'class': 'ub-content us-post', 'data-type': ['icon_txt', 'icon_pic']})
-        if initList == None:
-            crawler_log('첫 게시글을 여는데 문제가 생겼습니다.', request_id)
-            return -1
+        # 초기 메인 페이지 요청: 가장 최근 게시글 정보를 얻는다.
+        while True:
+            try:
+                response = await client.get(url, headers=selected_headers)
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                crawler_log(f'첫 게시글을 여는데 문제가 생겼습니다. 다시 시도하겠습니다! HTTP 상태 코드: {e.response.status_code}', request_id)
+                errorPoint += 1
+                client.cookies.clear()
+                selected_headers = REQUEST_HEADERS_LIST[randint(0, len(REQUEST_HEADERS_LIST)-1)]
+                await asyncio.sleep(dynamic_sleep_seconds(10, 30))
+                continue
+
+            html = response.content
+            bs = BeautifulSoup(html, 'html.parser')
+            initList = bs.find('tr', {'class': 'ub-content us-post', 'data-type': ['icon_txt', 'icon_pic']})
+            if initList is None:
+                crawler_log(f'첫 게시글을 여는데 문제가 생겼습니다. 다시 시도하겠습니다.', request_id)
+                errorPoint += 1
+                if errorPoint >= 10:
+                    crawler_log('첫 게시글을 여는데 계속 문제가 생깁니다. 크롤링을 종료합니다.', request_id)
+                    return -1
+                else:
+                    client.cookies.clear()
+                    selected_headers = REQUEST_HEADERS_LIST[randint(0, len(REQUEST_HEADERS_LIST)-1)]
+                    await asyncio.sleep(dynamic_sleep_seconds(10, 30))
+                    continue
+            break
         
         dataNum = int(initList.attrs['data-no'])
         maxDataNum = dataNum
@@ -152,14 +172,42 @@ async def firstListParsing(initUrl: str, now: datetime, previousDays: int, reque
         # exact match를 못 찾더라도 가장 근접한 글 번호를 기억해서 fallback으로 사용
         best_data_num = dataNum
         best_diff_gap = float('inf')
-        no_progress_count = 0
-        prev_data_num = None
 
         url = initList.find('a').attrs['href'] 
         url2 = url.rsplit('/', 1)[0]
         gallId = bs.find('button',{'id':'headTail_tab_gall'}).find('p',{'class': 'gallname'}).attrs['data-gallid']
 
-        while 1:
+        # 이진탐색: 원하는 날짜에 가장 근접한 게시글을 찾는다.
+        while True:
+            await asyncio.sleep(dynamic_sleep_seconds(10, 30))
+            mid_data_num = (minDataNum + maxDataNum) // 2
+
+            if mid_data_num <= minDataNum or mid_data_num >= maxDataNum:
+                crawler_log('해당하는 날짜의 게시글을 찾지 못했습니다. 가장 가까운 게시글로 대체합니다.', request_id)
+                fallback_url = 'https://gall.dcinside.com/' + url2 + '/?id={}&no={}&page=1'.format(gallId, best_data_num)
+                return gallId, best_data_num, fallback_url.split('/', 3)[3]
+
+            while errorPoint < 50 and count < 120:
+                try:
+                    url = 'https://gall.dcinside.com/' + url2 + '/?id={}&no={}&page=1'.format(gallId, mid_data_num)
+                    response = await client.get(url, headers=selected_headers)
+                    response.raise_for_status()
+                    html = response.content
+                    break
+                except httpx.HTTPStatusError:
+                    print(f'삭제되거나 존재하지 않는 게시글입니다. 탐색을 계속합니다!')
+                    client.cookies.clear()
+                    mid_data_num -= 1
+                    count += 1
+                    await asyncio.sleep(dynamic_sleep_seconds(10, 30))
+                    continue
+                except httpx.RequestError as e:
+                    print(f'요청 에러 발생: {e}')
+                    mid_data_num -= 1
+                    count += 1
+                    await asyncio.sleep(dynamic_sleep_seconds(10, 30))
+                    continue
+            
             if errorPoint > 50 or count > 120:
                 if best_diff_gap != float('inf'):
                     fallback_url = 'https://gall.dcinside.com/' + url2 + '/?id={}&no={}&page=1'.format(gallId, best_data_num)
@@ -169,45 +217,13 @@ async def firstListParsing(initUrl: str, now: datetime, previousDays: int, reque
                 crawler_log('해당하는 날짜의 게시글을 불러오지 못했습니다!', request_id)
                 return -1
 
-            if no_progress_count >= 10:
-                if best_diff_gap != float('inf'):
-                    fallback_url = 'https://gall.dcinside.com/' + url2 + '/?id={}&no={}&page=1'.format(gallId, best_data_num)
-                    crawler_log(f'탐색 진전이 없어 가장 근접한 게시글로 종료합니다. dataNum: {best_data_num}, 차이: {best_diff_gap}일', request_id)
-                    return gallId, best_data_num, fallback_url.split('/', 3)[3]
-                return -1
-
-            await asyncio.sleep(dynamic_sleep_seconds(10, 30))
-
-            # dataNum 경계 보정
-            if dataNum < minDataNum:
-                dataNum = minDataNum
-            elif dataNum > maxDataNum:
-                dataNum = maxDataNum
-
-            try:
-                url = 'https://gall.dcinside.com/' + url2 + '/?id={}&no={}&page=1'.format(gallId, dataNum)
-                response = await client.get(url, headers=selected_headers)
-                response.raise_for_status()
-                html = response.content
-            except httpx.HTTPStatusError:
-                print(f'삭제되거나 존재하지 않는 게시글입니다.')  
-                client.cookies.clear()
-                dataNum -= 1   
-                errorPoint += 1
-                continue
-            except httpx.RequestError as e:
-                print(f'요청 에러 발생: {e}')
-                dataNum -= 1
-                errorPoint += 1
-                continue
-            else:
-                crawler_log(f'해당하는 날짜의 게시글 찾는 중... 반복횟수: {count}번, 현재 dataNum: {dataNum}, 에러횟수: {errorPoint}번', request_id)
-
+            count += 1
+            crawler_log(f'해당하는 날짜의 게시글 찾는 중... 반복횟수: {count}번, 현재 dataNum: {mid_data_num}, 에러횟수: {errorPoint}번', request_id)
             bs = BeautifulSoup(html, 'html.parser')
             upTime = bs.find('span', {'class': 'gall_date'})
 
             if upTime == None:
-                dataNum -= 1
+                mid_data_num -= 1
                 errorPoint += 1
                 continue
                 
@@ -215,48 +231,23 @@ async def firstListParsing(initUrl: str, now: datetime, previousDays: int, reque
             dt = datetime.strptime(upTimeTitle, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone(timedelta(hours=9)))
             diffDays = (now - dt).days
             crawler_log(f'차이 일수: {diffDays}일', request_id)
-
             current_gap = abs(diffDays - previousDays)
             if current_gap < best_diff_gap:
                 best_diff_gap = current_gap
-                best_data_num = dataNum
+                best_data_num = mid_data_num
 
             if diffDays > previousDays:
                 #찾을려는 게시글보다 더 이전의 글이므로 dataNum(미국주식갤러리 같은 경우에는 현재 1400만) 증가 
                 # diffDays 랑 previousDays 차이가 큰경우 크게
-                gap = diffDays - previousDays
-                denominator = max(diffDays + previousDays, 1)
-                dynamic_scale = maxDataNum // ((count + 1) ** 2)
-                step = max(int((gap / denominator) * dynamic_scale), 1)
-                next_data_num = min(dataNum + step, maxDataNum)
-                count +=1
-                if prev_data_num == next_data_num or next_data_num == dataNum:
-                    no_progress_count += 1
-                    next_data_num = min(dataNum + 1, maxDataNum)
-                else:
-                    no_progress_count = 0
-                prev_data_num = dataNum
-                dataNum = next_data_num
+                minDataNum = mid_data_num
                 continue
             elif diffDays < previousDays:
                 #찾을려는 게시글보다 더 이 후의 글이므로 dataNum 감소 필요
-                gap = previousDays - diffDays
-                denominator = max(diffDays + previousDays, 1)
-                dynamic_scale = maxDataNum // ((count + 1) ** 2)
-                step = max(int((gap / denominator) * dynamic_scale), 1)
-                next_data_num = max(dataNum - step, minDataNum)
-                count += 1
-                if prev_data_num == next_data_num or next_data_num == dataNum:
-                    no_progress_count += 1
-                    next_data_num = max(dataNum - 1, minDataNum)
-                else:
-                    no_progress_count = 0
-                prev_data_num = dataNum
-                dataNum = next_data_num
+                maxDataNum = mid_data_num
                 continue
             else:    
                 crawler_log(f'탐색성공! 탐색횟수 {count}번, {url}', request_id)
-                return gallId, dataNum, url.split('/', 3)[3]
+                return gallId, mid_data_num, url.split('/', 3)[3]
 
 #!!!!!반드시 vpn 키고 돌릴것!!!!!
 # url과 시간을 받으면 그 시간안에 메인페이지 안에 있는 모든 게시글과 내용을 받음
@@ -277,5 +268,7 @@ async def startCrawler(initUrl:str, days: int, previousDays: int = 0, request_id
         return -1, save_count
 
     return 0, save_count
+
+
 # if __name__ == "__main__":
 #     asyncio.run(main())

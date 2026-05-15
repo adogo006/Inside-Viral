@@ -80,6 +80,7 @@ async def health_check():
                 continue
             temp_dict = {
                 "request_id": active_tasks_log.request_id,
+                "status" : active_tasks_log.status,
                 "gall_main_url": active_tasks_log.gall_main_url,
                 "days": active_tasks_log.days,
                 "days_ago": active_tasks_log.days_ago,
