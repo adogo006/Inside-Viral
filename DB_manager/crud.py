@@ -106,4 +106,4 @@ def get_request_status(db : Session, request_id: str) -> str | None:
         )
         if request_log is None:
             return None
-        return request_log.status
+        return request_log
