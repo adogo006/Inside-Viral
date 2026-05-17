@@ -5,36 +5,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>InsideViral | 혼돈지수 대시보드</title>
     <link rel="stylesheet" href="./styles/style.css">
-    //차트 그리는 라이브러리
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
+    <div class="page-indicator">
+        <a href="#chart-section" class="indicator">그래프</a>
+        <a href="#logs-section" class="indicator">로그</a>
+    </div>
 
-    <div class="header">
-        <span id="topic-select">
-            미국주식 갤러리
-            <div class="dropdown-menu">
-                <div class="dropdown-item" onclick="changeTopic('한국주식 갤러리', 'ko-stocks')">한국주식</div>
-                <div class="dropdown-item" onclick="changeTopic('미국주식 갤러리', 'us-stocks')">미국주식</div>
-                <div class="dropdown-item" onclick="changeTopic('비트코인 갤러리', 'crypto')">비트코인</div>
-                <div class="dropdown-item" onclick="changeTopic('종합', 'ent')">종합</div>
-            </div>
-        </span>
-        의 혼돈지수
-
-        <div class="timeframe-select">
-            <button class="tf-btn active" data-tf="1D">1D</button>
-            <button class="tf-btn" data-tf="7D">7D</button>
-            <button class="tf-btn" data-tf="1M">1M</button>
-            <button class="tf-btn" data-tf="1Y">1Y</button>
+    <section id="chart-section" class="page-section">
+        <div class="section-header">
+            <div class="section-title">혼돈지수 그래프</div>
+            <div class="section-subtitle">커뮤니티의 분위기를 나타냅니다.</div>
         </div>
-    </div>
+        <div class="header">
+            <span id="topic-select">
+                미국주식 갤러리
+                <div class="dropdown-menu">
+                    <div class="dropdown-item" onclick="changeTopic('한국주식 갤러리', 'ko-stocks')">한국주식</div>
+                    <div class="dropdown-item" onclick="changeTopic('미국주식 갤러리', 'stockus')">미국주식</div>
+                    <div class="dropdown-item" onclick="changeTopic('비트코인 갤러리', 'crypto')">비트코인</div>
+                    <div class="dropdown-item" onclick="changeTopic('종합', 'ent')">종합</div>
+                </div>
+            </span>
+            의 혼돈지수
 
-    <div class="chart-wrapper">
-        <div id="chart-container"></div>
-        <img id="emotionGif" class="emotion-gif" style="display: none;">
-        <button class="reset-btn" onclick="resetZoom()">초기화</button>
-    </div>
+            <div class="timeframe-select">
+                <button class="tf-btn active" data-tf="1D">1D</button>
+                <button class="tf-btn" data-tf="7D">7D</button>
+                <button class="tf-btn" data-tf="1M">1M</button>
+                <button class="tf-btn" data-tf="1Y">1Y</button>
+            </div>
+        </div>
+
+        <div class="chart-wrapper">
+            <div id="chart-container"></div>
+            <img id="emotionGif" class="emotion-gif" style="display: none;">
+            <button class="reset-btn" onclick="resetZoom()">초기화</button>
+        </div>
+    </section>
+
+    <section id="logs-section" class="page-section">
+        <div class="section-header">
+            <div class="section-title">실행 로그</div>
+            <div class="section-subtitle">프로그램 실행 중 생성되는 로그를 이곳에서 확인하세요.</div>
+        </div>
+
+        <div class="logs-wrapper">
+            <div id="log-panel" class="log-panel" aria-label="실행 로그">
+                <pre class="log-entry">[00:00:00] 프로그램이 시작되었습니다.</pre>
+                <pre class="log-entry">[00:00:05] 데이터 로딩이 시작되었습니다.</pre>
+                <pre class="log-entry">[00:00:12] 그래프 데이터가 성공적으로 로드되었습니다.</pre>
+                <pre class="log-entry">[00:00:20] 로그 화면이 활성화되었습니다.</pre>
+            </div>
+        </div>
+    </section>
 
     <script src="./scripts/script.js"></script>
 </body>

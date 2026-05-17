@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone, timedelta
 from contextlib import asynccontextmanager
 
 import os
@@ -9,11 +10,13 @@ import httpx
 from pydantic import ValidationError
 from uuid import UUID
 
-from schemas import CrawlRelayRequest, CrawlerCallbackPayload, RequestLogUpsert
+from schemas import CrawlRelayRequest, CrawlerCallbackPayload, RequestLogUpsert, ComputeAverageSentimentRequest
 from DB_manager.models import RequestStatus
 from api_crud import api_create_request_log, api_get_request_log, api_update_request_log
 from DB_manager.database import SessionLocal, engine
-from DB_manager import models, crud
+from DB_manager import models
+from sqlalchemy import select
+from DB_manager.crud import compute_average_sentiment, get_historical_sentiments
 from scheduler_runtime import start_scheduler, stop_scheduler
 
 
@@ -29,6 +32,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="InsideViral API", lifespan=lifespan)
 
+# CORS 설정: 브라우저의 접근 허용
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 async def notify_user_or_admin(request_id: str, status: str, error_message: Optional[str] = None, saved_rows: Optional[int] = None):
     """콜백 수신 후 알림 훅. 기본은 로그 출력, 필요 시 웹훅으로 확장."""
@@ -265,6 +276,23 @@ async def request_api_crawling(payload: CrawlRelayRequest):
     finally:
         db.close()
 
+@app.post("/sentiment/compute")
+def request_compute_average_sentiment(payload: ComputeAverageSentimentRequest):
+    """특정 갤러리 날짜에 대해 평균 감성 지수를 계산하고 저장합니다."""
+    db = SessionLocal()
+    try:
+        average = compute_average_sentiment(db, payload.gall_id, payload.target_date, payload.period)
+        return {
+            "message": "compute_average_sentiment completed",
+            "gall_id": payload.gall_id,
+            "target_date": payload.target_date.isoformat(),
+            "period": payload.period,
+            "average_sentiment": average,
+        }
+    finally:
+        db.close()
+
+
 # POST https://api:8000/crawl/cancel/
 @app.post("/crawl/cancel/{request_id}")
 async def cancel_api_crawling(request_id: str):
@@ -328,5 +356,38 @@ async def cancel_api_crawling(request_id: str):
     finally:
         db.close()
 
+@app.get("/sentiment/history")
+def read_sentiment_history(gall_id: str, period: str = "7D"):
+    db = SessionLocal()
+    try:
+        days_map = {"1D": 1, "7D": 7, "1M": 30, "1Y": 365}
+        days = days_map.get(period, 7)
+        
+        # [수정] 시작 날짜의 시간을 00:00:00으로 설정하여 당일 데이터 포함
+        now = datetime.now(timezone.utc)
+        start_date = datetime.combine(now.date() - timedelta(days=days), time.min).replace(tzinfo=timezone.utc)
+        
+        print(f"조회 시작: {gall_id} (범위: {start_date} ~ 현재)")
 
-
+        stmt = select(models.AverageSentimentForOneDay).where(
+            models.AverageSentimentForOneDay.gall_id == gall_id,
+            models.AverageSentimentForOneDay.date >= start_date
+        ).order_by(models.AverageSentimentForOneDay.date.asc())
+        
+        result = db.execute(stmt).scalars().all()
+        
+        # Lightweight Charts 형식에 맞춰 변환 (time은 'YYYY-MM-DD' 문자열)
+        chart_data = [
+            {
+                "time": r.date.strftime("%Y-%m-%d"), 
+                "value": float(r.average_sentiment)
+            } for r in result
+        ]
+        
+        print(f"조회 완료: {len(chart_data)}개의 데이터를 찾았습니다.")
+        return chart_data
+    except Exception as e:
+        print(f"에러 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()

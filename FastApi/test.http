@@ -69,8 +69,18 @@ POST http://nlp:8001/assign-sentiment
 Content-Type: application/json
 
 {
-    "request_id": "105569db-860d-4e9d-a685-4e1cf259492c"
+    "request_id": "d3b1cf5c-b59d-4be8-8d00-12c28e3c1f34"
 }
 
 ### NLP 상태 조회
 GET http://nlp:8001/nlp/status/d68038f1-508f-40c0-8ca7-f144236e71c8
+
+### 평균 감정 계산 테스트
+POST http://api:8000/sentiment/compute
+Content-Type: application/json
+
+{
+    "gall_id": "stockus",
+    "target_date": "2026-05-04 15:38:38+00:00",
+    "period": 30
+}

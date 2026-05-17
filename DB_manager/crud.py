@@ -42,23 +42,35 @@ def delete_word(db: Session, word_id: int):
         return False
 
 def compute_average_sentiment(db: Session, gall_id: str, target_date: datetime, period: int = 1):
-    start_date = target_date.replace(hour=0, minute=0, second=0, microsecond=0).replace(tzinfo=timezone.utc)
+    
+    print(f"[!] Input date: {target_date}, period: {period}\n")
+    
+    if target_date.tzinfo is None:
+        start_date = target_date.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
+    else:
+        start_date = target_date.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     current_date = start_date
     next_date = start_date + timedelta(days=period)
     average_sentiment = 0.0
 
+    print(f"[!] Start compute from {current_date} to {next_date}\n")
+    
     try:
         while current_date < next_date:
             day_end = current_date + timedelta(days=1)
+            
             stmt = select(func.avg(models.Word.sentiment)).where(
                 models.Word.gallId == gall_id,
                 models.Word.date >= current_date,
-                models.Word.date < day_end,
+                models.Word.date < day_end
             )
             average_sentiment = db.execute(stmt).scalar_one_or_none()
+            
             if average_sentiment is None:
                 average_sentiment = 0.0
-
+            
+            print(f"[{current_date}] Average sentiment: {average_sentiment}\n")
+            
             upsert_stmt = insert(models.AverageSentimentForOneDay).values(
                 gall_id=gall_id,
                 date=current_date,
@@ -68,7 +80,7 @@ def compute_average_sentiment(db: Session, gall_id: str, target_date: datetime, 
                 set_={"average_sentiment": average_sentiment},
             )
             db.execute(upsert_stmt)
-
+            
             current_date += timedelta(days=1)
 
         db.commit()
@@ -107,3 +119,15 @@ def get_request_status(db : Session, request_id: str) -> str | None:
         if request_log is None:
             return None
         return request_log
+
+def get_historical_sentiments(db: Session, gall_id: str, days: int):
+    # 오늘을 기준으로 days 전의 날짜 계산
+    start_date = datetime.now(timezone.utc) - timedelta(days=days)
+    
+    # 해당 갤러리의 데이터를 날짜 오름차순으로 조회
+    stmt = select(models.AverageSentimentForOneDay).where(
+        models.AverageSentimentForOneDay.gall_id == gall_id,
+        models.AverageSentimentForOneDay.date >= start_date
+    ).order_by(models.AverageSentimentForOneDay.date.asc())
+    
+    return db.execute(stmt).scalars().all()

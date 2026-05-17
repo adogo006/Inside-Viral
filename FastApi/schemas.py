@@ -41,3 +41,9 @@ class SentimentResponse(BaseModel):
     gall_id: str
     timeframe: str
     data: list[SentimentDataPoint]
+
+
+class ComputeAverageSentimentRequest(BaseModel):
+    gall_id: str = Field(..., description="갤러리 ID")
+    target_date: datetime = Field(..., description="계산할 기준 날짜 (ISO 형식)")
+    period: int = Field(1, ge=1, description="계산할 일 수")
