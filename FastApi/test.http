@@ -5,7 +5,7 @@ Content-Type: application/json
 {
     "gall_main_url": "https://gall.dcinside.com/mgallery/board/lists/?id=stockus",
     "days": 1,
-    "days_ago": 3
+    "days_ago": 2
 }
 
 
@@ -50,7 +50,7 @@ Content-Type: application/json
 }
 
 ### 크롤링 요청 취소
-POST http://api:8000/crawl/cancel/96eddeb8-7318-42c4-aa69-571ca7e587ce
+POST http://api:8000/crawl/cancel/90347c63-ea19-45dc-a853-79f9c9535f3d
 ### 크롤링 상태 조회
 GET http://api:8000/crawl/healthcheck
 

@@ -118,7 +118,7 @@ def get_request_status(db : Session, request_id: str) -> str | None:
         )
         if request_log is None:
             return None
-        return request_log.status
+        return request_log
 
 def get_historical_sentiments(db: Session, gall_id: str, days: int):
     # 오늘을 기준으로 days 전의 날짜 계산

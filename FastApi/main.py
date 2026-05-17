@@ -80,9 +80,29 @@ async def health_check():
         raise HTTPException(status_code=502, detail=f"crawler error: {detail}")
     except httpx.RequestError as exc:
         raise HTTPException(status_code=503, detail=f"crawler unavailable: {exc}")
+    
+    request_id_list = response.json().get("active_tasks", [])
+    active_tasks = []
+    db = SessionLocal()
+    try:
+        for request_id in request_id_list:
+            active_tasks_log = crud.get_request_status(db, request_id)
+            if active_tasks_log is None:
+                continue
+            temp_dict = {
+                "request_id": active_tasks_log.request_id,
+                "status" : active_tasks_log.status,
+                "gall_main_url": active_tasks_log.gall_main_url,
+                "days": active_tasks_log.days,
+                "days_ago": active_tasks_log.days_ago,
+            }
+            active_tasks.append(temp_dict)
+    finally:
+        db.close()
+
     return {
         "message": "crawler healthcheck ok",
-        "crawler_response": response.json(),
+        "active_tasks": active_tasks,
     }
 
 @app.get("/crawl/{request_id}")
