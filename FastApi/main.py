@@ -14,7 +14,7 @@ from schemas import CrawlRelayRequest, CrawlerCallbackPayload, RequestLogUpsert,
 from DB_manager.models import RequestStatus
 from api_crud import api_create_request_log, api_get_request_log, api_update_request_log
 from DB_manager.database import SessionLocal, engine
-from DB_manager import models
+from DB_manager import models, crud
 from sqlalchemy import select
 from DB_manager.crud import compute_average_sentiment, get_historical_sentiments
 from scheduler_runtime import start_scheduler, stop_scheduler
