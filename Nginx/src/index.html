@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InsideViral | 혼돈지수 대시보드</title>
+    <title>InsideViral</title>
     <link rel="stylesheet" href="./styles/style.css">
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
@@ -15,7 +15,7 @@
 
     <section id="chart-section" class="page-section">
         <div class="section-header">
-            <div class="section-title">혼돈지수 그래프</div>
+            <div class="section-title">감성지수 그래프</div>
             <div class="section-subtitle">커뮤니티의 분위기를 나타냅니다.</div>
         </div>
         <div class="header">
@@ -28,7 +28,6 @@
                     <div class="dropdown-item" onclick="changeTopic('종합', 'ent')">종합</div>
                 </div>
             </span>
-            의 혼돈지수
 
             <div class="timeframe-select">
                 <button class="tf-btn active" data-tf="1D">1D</button>
@@ -38,10 +37,14 @@
             </div>
         </div>
 
-        <div class="chart-wrapper">
+        <div class="chart-wrapper" style="position: relative;">
             <div id="chart-container"></div>
+            
+            <div id="chart-error" style="display: none; align-items: center; justify-content: center; height: 100%; color: #888; font-size: 16px; position: absolute; top: 0; left: 0; width: 100%; background: #ffffff; z-index: 10;">
+                데이터를 불러올 수 없습니다
+            </div>
+            
             <img id="emotionGif" class="emotion-gif" style="display: none;">
-            <button class="reset-btn" onclick="resetZoom()">초기화</button>
         </div>
     </section>
 
@@ -52,12 +55,7 @@
         </div>
 
         <div class="logs-wrapper">
-            <div id="log-panel" class="log-panel" aria-label="실행 로그">
-                <pre class="log-entry">[00:00:00] 프로그램이 시작되었습니다.</pre>
-                <pre class="log-entry">[00:00:05] 데이터 로딩이 시작되었습니다.</pre>
-                <pre class="log-entry">[00:00:12] 그래프 데이터가 성공적으로 로드되었습니다.</pre>
-                <pre class="log-entry">[00:00:20] 로그 화면이 활성화되었습니다.</pre>
-            </div>
+            <div id="log-panel" class="log-panel" aria-label="실행 로그"></div>
         </div>
     </section>
 

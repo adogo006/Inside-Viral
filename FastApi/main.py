@@ -14,7 +14,7 @@ from schemas import CrawlRelayRequest, CrawlerCallbackPayload, RequestLogUpsert,
 from DB_manager.models import RequestStatus
 from api_crud import api_create_request_log, api_get_request_log, api_update_request_log
 from DB_manager.database import SessionLocal, engine
-from DB_manager import models
+from DB_manager import models, crud
 from sqlalchemy import select
 from DB_manager.crud import compute_average_sentiment, get_historical_sentiments
 from scheduler_runtime import start_scheduler, stop_scheduler
@@ -31,15 +31,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="InsideViral API", lifespan=lifespan)
-
-# CORS 설정: 브라우저의 접근 허용
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 async def notify_user_or_admin(request_id: str, status: str, error_message: Optional[str] = None, saved_rows: Optional[int] = None):
     """콜백 수신 후 알림 훅. 기본은 로그 출력, 필요 시 웹훅으로 확장."""
@@ -355,6 +346,17 @@ async def cancel_api_crawling(request_id: str):
         }
     finally:
         db.close()
+
+# -------------------------------------------------------------------------
+
+# CORS 설정: 브라우저의 접근 허용
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/sentiment/history")
 def read_sentiment_history(gall_id: str, period: str = "7D"):

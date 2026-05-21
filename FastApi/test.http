@@ -5,7 +5,7 @@ Content-Type: application/json
 {
     "gall_main_url": "https://gall.dcinside.com/mgallery/board/lists/?id=stockus",
     "days": 1,
-    "days_ago": 2
+    "days_ago": 1
 }
 
 
@@ -50,7 +50,7 @@ Content-Type: application/json
 }
 
 ### 크롤링 요청 취소
-POST http://api:8000/crawl/cancel/90347c63-ea19-45dc-a853-79f9c9535f3d
+POST http://api:8000/crawl/cancel/30787ad6-4df6-498b-81cd-016ae6ab6b80
 ### 크롤링 상태 조회
 GET http://api:8000/crawl/healthcheck
 
@@ -69,7 +69,7 @@ POST http://nlp:8001/assign-sentiment
 Content-Type: application/json
 
 {
-    "request_id": "d3b1cf5c-b59d-4be8-8d00-12c28e3c1f34"
+    "request_id": "0631bd64-3283-463b-b508-f7130e98a6f3"
 }
 
 ### NLP 상태 조회
@@ -81,6 +81,6 @@ Content-Type: application/json
 
 {
     "gall_id": "stockus",
-    "target_date": "2026-05-04 15:38:38+00:00",
-    "period": 30
+    "target_date": "2026-05-01 15:38:38+00:00",
+    "period": 20
 }
