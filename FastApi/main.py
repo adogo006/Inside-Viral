@@ -32,15 +32,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="InsideViral API", lifespan=lifespan)
 
-# CORS 설정: 브라우저의 접근 허용
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 async def notify_user_or_admin(request_id: str, status: str, error_message: Optional[str] = None, saved_rows: Optional[int] = None):
     """콜백 수신 후 알림 훅. 기본은 로그 출력, 필요 시 웹훅으로 확장."""
     print(f"[NOTIFY] request_id={request_id} status={status} saved_rows={saved_rows} error={error_message}")
@@ -355,6 +346,17 @@ async def cancel_api_crawling(request_id: str):
         }
     finally:
         db.close()
+
+# -------------------------------------------------------------------------
+
+# CORS 설정: 브라우저의 접근 허용
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/sentiment/history")
 def read_sentiment_history(gall_id: str, period: str = "7D"):

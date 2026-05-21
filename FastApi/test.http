@@ -50,7 +50,7 @@ Content-Type: application/json
 }
 
 ### 크롤링 요청 취소
-POST http://api:8000/crawl/cancel/08ce51c7-286c-4c31-b748-672f671a2b69
+POST http://api:8000/crawl/cancel/30787ad6-4df6-498b-81cd-016ae6ab6b80
 ### 크롤링 상태 조회
 GET http://api:8000/crawl/healthcheck
 
@@ -69,7 +69,7 @@ POST http://nlp:8001/assign-sentiment
 Content-Type: application/json
 
 {
-    "request_id": "08ce51c7-286c-4c31-b748-672f671a2b69"
+    "request_id": "0631bd64-3283-463b-b508-f7130e98a6f3"
 }
 
 ### NLP 상태 조회
@@ -81,6 +81,6 @@ Content-Type: application/json
 
 {
     "gall_id": "stockus",
-    "target_date": "2026-05-06 15:38:38+00:00",
-    "period": 12
+    "target_date": "2026-05-01 15:38:38+00:00",
+    "period": 20
 }
